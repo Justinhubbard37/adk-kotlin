@@ -241,19 +241,19 @@ private fun stateDeltaToDto(stateDelta: Map<String, Any>): JsonElement {
  * `EventMetadata.custom_metadata`.
  */
 @OptIn(FrameworkInternalApi::class)
-private fun customMetadataToDto(customMetadata: Map<String, Any>): JsonElement =
+private fun customMetadataToDto(customMetadata: Map<String, Any?>): JsonElement =
   JsonObject(customMetadata.mapValues { (_, value) -> anyToJsonElement(value) })
 
 /**
  * Reads back the `google.protobuf.Struct` written by [customMetadataToDto]. Entries whose value is
- * JSON `null` are dropped, since [Event.customMetadata] does not permit null values.
+ * JSON `null` round-trip as `null`, matching [Event.customMetadata].
  */
 @OptIn(FrameworkInternalApi::class)
-private fun customMetadataFromDto(customMetadata: JsonElement): Map<String, Any>? =
+private fun customMetadataFromDto(customMetadata: JsonElement): Map<String, Any?>? =
   (customMetadata as? JsonObject)?.let { obj ->
     buildMap {
       for ((key, value) in obj) {
-        jsonElementToAny(value)?.let { put(key, it) }
+        put(key, jsonElementToAny(value))
       }
     }
   }

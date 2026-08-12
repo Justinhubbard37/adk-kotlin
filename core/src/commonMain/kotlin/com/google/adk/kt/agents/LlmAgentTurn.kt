@@ -446,7 +446,7 @@ internal class LlmAgentTurn(
           groundingMetadata = response.groundingMetadata,
           citationMetadata = response.citationMetadata,
           errorCode = response.errorCode,
-          customMetadata = response.customMetadata?.filterNotNullValues(),
+          customMetadata = response.customMetadata,
         )
         .populateClientFunctionCallId()
 
@@ -538,12 +538,6 @@ internal class LlmAgentTurn(
       if (pausedIds.isNotEmpty() && resolvedIds.containsAll(pausedIds)) return false
     }
     return shouldPauseInvocation(last) || shouldPauseInvocation(events[events.size - 2])
-  }
-}
-
-private fun <K, V : Any> Map<K, V?>.filterNotNullValues(): Map<K, V> = buildMap {
-  for ((key, value) in this@filterNotNullValues) {
-    if (value != null) put(key, value)
   }
 }
 

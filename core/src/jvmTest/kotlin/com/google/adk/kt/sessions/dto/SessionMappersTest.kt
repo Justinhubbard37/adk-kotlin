@@ -281,10 +281,10 @@ class SessionMappersTest {
   }
 
   @Test
-  fun sessionEventDtoToAdk_nullValuedCustomMetadata_dropsNullEntries() {
-    // Struct permits null values but Event.customMetadata is Map<String, Any> with non-null values,
-    // so a null read off the wire must be dropped at the boundary rather than surfacing as a null
-    // held under a non-null type.
+  fun sessionEventDtoToAdk_nullValuedCustomMetadata_preservesNullEntries() {
+    // Struct permits null values and Event.customMetadata is Map<String, Any?>, so a null read off
+    // the wire round-trips as a null-valued entry rather than being dropped. This distinguishes
+    // "key absent" from "key present with no value", matching the Python ADK.
     val dto =
       SessionEventDto(
         author = "user",
@@ -298,6 +298,6 @@ class SessionMappersTest {
 
     val event = dto.toAdk()
 
-    assertThat(event.customMetadata).containsExactly("present", "v")
+    assertThat(event.customMetadata).containsExactly("present", "v", "absent", null)
   }
 }

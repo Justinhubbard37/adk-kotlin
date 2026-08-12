@@ -80,7 +80,7 @@ data class Event(
   val modelVersion: String? = null,
   val citationMetadata: CitationMetadata? = null,
   val cacheMetadata: CacheMetadata? = null,
-  val customMetadata: Map<String, @Contextual Any>? = null,
+  val customMetadata: Map<String, @Contextual Any?>? = null,
   val timestamp: Long = Clock.System.now().toEpochMilliseconds(),
 ) {
 
