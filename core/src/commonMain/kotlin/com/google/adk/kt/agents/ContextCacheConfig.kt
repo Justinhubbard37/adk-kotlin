@@ -21,6 +21,7 @@ import com.google.adk.kt.annotations.ExperimentalContextCachingFeature
 import com.google.adk.kt.types.HttpOptions
 import kotlin.jvm.JvmStatic
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -86,6 +87,12 @@ constructor(
     }
 
     fun ttl(ttl: Duration): Builder = apply { this.ttl = ttl }
+
+    /**
+     * Sets [ttl] in milliseconds. Java cannot call [ttl], whose JVM name is mangled because
+     * [Duration] is a value class.
+     */
+    fun ttlMillis(ttlMillis: Long): Builder = apply { this.ttl = ttlMillis.milliseconds }
 
     fun minTokens(minTokens: Int): Builder = apply { this.minTokens = minTokens }
 
