@@ -69,3 +69,7 @@ project(":google-adk-kotlin-litertlm").projectDir = file("litertlm")
 include(":google-adk-kotlin-examples-android")
 
 project(":google-adk-kotlin-examples-android").projectDir = file("examples/android")
+
+include(":google-adk-kotlin-examples-java")
+
+project(":google-adk-kotlin-examples-java").projectDir = file("examples/java")

@@ -20,6 +20,7 @@ import com.google.adk.kt.a2a.agent.A2AAgentImpl
 import com.google.adk.kt.a2a.agent.BaseRemoteA2AAgent
 import com.google.adk.kt.a2a.agent.resolveAgentCard
 import com.google.adk.kt.agents.BaseAgent
+import com.google.adk.kt.annotations.AdkJavaInteropApi
 import com.google.adk.kt.callbacks.AfterAgentCallback
 import com.google.adk.kt.callbacks.BeforeAgentCallback
 import org.a2aproject.sdk.client.Client
@@ -103,4 +104,98 @@ suspend fun A2AAgent(
     subAgents = subAgents,
     beforeAgentCallbacks = beforeAgentCallbacks,
     afterAgentCallbacks = afterAgentCallbacks,
+  )
+
+/**
+ * Optional settings for the [A2AAgent] factories, grouped into one object so Java callers can
+ * assemble them with [Builder] instead of a long positional call. Every property defaults to the
+ * same value the [A2AAgent] parameters use.
+ *
+ * @property httpClient HTTP client backing the JSON-RPC transport; defaults to a
+ *   [JdkA2AHttpClient].
+ * @property description overrides the agent's description; when null, the remote card's description
+ *   is used (matching ADK Python/Go).
+ * @property subAgents child agents in the ADK agent tree.
+ * @property beforeAgentCallbacks callbacks invoked before the agent runs.
+ * @property afterAgentCallbacks callbacks invoked after the agent runs.
+ */
+data class A2AAgentConfig(
+  val httpClient: A2AHttpClient = JdkA2AHttpClient(),
+  val description: String? = null,
+  val subAgents: List<BaseAgent> = emptyList(),
+  val beforeAgentCallbacks: List<BeforeAgentCallback> = emptyList(),
+  val afterAgentCallbacks: List<AfterAgentCallback> = emptyList(),
+) {
+  /**
+   * Fluent builder for [A2AAgentConfig], provided primarily for Java callers. Any property left
+   * unset falls back to the same default as the constructor.
+   */
+  @Suppress("ScopeReceiverThis") // Java-style builder for Java interop.
+  class Builder {
+    private var httpClient: A2AHttpClient = JdkA2AHttpClient()
+    private var description: String? = null
+    private var subAgents: List<BaseAgent> = emptyList()
+    private var beforeAgentCallbacks: List<BeforeAgentCallback> = emptyList()
+    private var afterAgentCallbacks: List<AfterAgentCallback> = emptyList()
+
+    fun httpClient(httpClient: A2AHttpClient): Builder = apply { this.httpClient = httpClient }
+
+    fun description(description: String?): Builder = apply { this.description = description }
+
+    fun subAgents(subAgents: List<BaseAgent>): Builder = apply { this.subAgents = subAgents }
+
+    fun beforeAgentCallbacks(beforeAgentCallbacks: List<BeforeAgentCallback>): Builder = apply {
+      this.beforeAgentCallbacks = beforeAgentCallbacks
+    }
+
+    fun afterAgentCallbacks(afterAgentCallbacks: List<AfterAgentCallback>): Builder = apply {
+      this.afterAgentCallbacks = afterAgentCallbacks
+    }
+
+    fun build(): A2AAgentConfig =
+      A2AAgentConfig(
+        httpClient = httpClient,
+        description = description,
+        subAgents = subAgents,
+        beforeAgentCallbacks = beforeAgentCallbacks,
+        afterAgentCallbacks = afterAgentCallbacks,
+      )
+  }
+
+  companion object {
+    @AdkJavaInteropApi @JvmStatic fun builder(): Builder = Builder()
+  }
+}
+
+/**
+ * Builds a JVM A2A agent from a resolved [agentCard], taking its optional settings from [config].
+ */
+fun A2AAgent(name: String, agentCard: AgentCard, config: A2AAgentConfig): BaseRemoteA2AAgent =
+  A2AAgent(
+    name = name,
+    agentCard = agentCard,
+    httpClient = config.httpClient,
+    description = config.description,
+    subAgents = config.subAgents,
+    beforeAgentCallbacks = config.beforeAgentCallbacks,
+    afterAgentCallbacks = config.afterAgentCallbacks,
+  )
+
+/**
+ * Builds a JVM A2A agent from [agentCardUrl], taking its optional settings from [config]. Suspends
+ * on the network fetch of the [AgentCard].
+ */
+suspend fun A2AAgent(
+  name: String,
+  agentCardUrl: String,
+  config: A2AAgentConfig,
+): BaseRemoteA2AAgent =
+  A2AAgent(
+    name = name,
+    agentCardUrl = agentCardUrl,
+    httpClient = config.httpClient,
+    description = config.description,
+    subAgents = config.subAgents,
+    beforeAgentCallbacks = config.beforeAgentCallbacks,
+    afterAgentCallbacks = config.afterAgentCallbacks,
   )
