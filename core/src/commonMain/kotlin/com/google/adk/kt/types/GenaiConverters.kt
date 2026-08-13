@@ -88,9 +88,9 @@ import kotlinx.serialization.json.longOrNull
 /**
  * Recursively converts an arbitrary value into a [JsonElement] for the GenAI SDK.
  *
- * A `null` becomes [JsonNull]. Within a nested [Map] value, null-valued entries are dropped; the
- * top-level `FunctionResponse.response` / `FunctionCall.args` maps are converted entry-by-entry by
- * their callers, so their `null` values are preserved as [JsonNull].
+ * A `null` becomes [JsonNull] at any depth, so a map entry explicitly set to `null` reaches the
+ * model as JSON `null` rather than disappearing. Only non-string keys are normalized, never
+ * dropped.
  */
 internal fun Any?.toJsonElement(): JsonElement =
   when (this) {
@@ -100,11 +100,7 @@ internal fun Any?.toJsonElement(): JsonElement =
     is Number -> JsonPrimitive(this)
     is String -> JsonPrimitive(this)
     is Map<*, *> ->
-      JsonObject(
-        this.entries
-          .filter { (_, v) -> v != null }
-          .associate { (k, v) -> k.toString() to v.toJsonElement() }
-      )
+      JsonObject(this.entries.associate { (k, v) -> k.toString() to v.toJsonElement() })
     is Iterable<*> -> JsonArray(this.map { it.toJsonElement() })
     is Array<*> -> JsonArray(this.map { it.toJsonElement() })
     // Edge-case fallback for a custom object arriving as erased `Any`; KSP `@Tool`s don't reach

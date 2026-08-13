@@ -88,7 +88,7 @@ class GenaiConvertersTest {
 
   @Test
   fun jsonElementConversions_roundTripNestedValues() {
-    // Exercises Any?.toJsonElement() (Map null-stripping, Iterable, Array, primitives) and
+    // Exercises Any?.toJsonElement() (null preservation, Iterable, Array, primitives) and
     // JsonElement.toAny() (JsonObject, JsonArray, primitive coercions) directly.
     val original: Map<String, Any?> =
       mapOf(
@@ -99,13 +99,15 @@ class GenaiConvertersTest {
         "double" to 1.5,
         "list" to listOf("a", 1),
         "array" to arrayOf<Any>("b", 2),
-        "nested" to mapOf("inner" to "v"),
-        "dropped" to null,
+        "nested" to mapOf("inner" to "v", "keptNull" to null),
+        "kept" to null,
       )
 
     val roundTripped = original.toJsonElement().toAny()
 
-    // `dropped` is omitted (null map entries are stripped) and arrays come back as lists.
+    // Nulls survive at both depths; only arrays come back as lists. The nested one is the case
+    // that matters: callers convert the top-level map entry by entry, so only a nested map
+    // reaches the `Map` branch that used to drop them.
     assertEquals(
       mapOf(
         "string" to "text",
@@ -115,7 +117,8 @@ class GenaiConvertersTest {
         "double" to 1.5,
         "list" to listOf("a", 1),
         "array" to listOf("b", 2),
-        "nested" to mapOf("inner" to "v"),
+        "nested" to mapOf("inner" to "v", "keptNull" to null),
+        "kept" to null,
       ),
       roundTripped,
     )

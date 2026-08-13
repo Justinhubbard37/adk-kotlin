@@ -42,8 +42,8 @@ import kotlinx.serialization.json.JsonObject
  * payload.
  *
  * The checked payload is the converted `response` map (`Map<String, JsonElement>`) -- exactly what
- * the SDK puts on the wire -- so primitives keep their JSON type and `null` entries are dropped,
- * verified without a live model call.
+ * the SDK puts on the wire -- so primitives keep their JSON type and `null` entries survive as JSON
+ * `null`, verified without a live model call.
  */
 class FunctionToolWireFormatTest {
 
@@ -173,9 +173,9 @@ class FunctionToolWireFormatTest {
   }
 
   @Test
-  fun toolReturningNestedMapWithNulls_emitsRecursivelyFlattenedJsonWithNullsStripped() = runTest {
-    // `null` entries (here: `label`) are dropped by the converter, mirroring the SDK's
-    // `explicitNulls = false` wire behavior, so Gemini never sees a `label: null` entry.
+  fun toolReturningNestedMapWithNulls_emitsRecursivelyFlattenedJsonWithNullsPreserved() = runTest {
+    // A `null` entry (here: `label`) reaches the wire as JSON `null`, so Gemini can tell it apart
+    // from a field the tool omitted entirely.
     assertWireResponse(
       ReturnsKitchenSinkTool(),
       expected =
@@ -186,6 +186,7 @@ class FunctionToolWireFormatTest {
             "value": 42,
             "ratio": 0.5,
             "active": true,
+            "label": null,
             "status": "READY",
             "tags": ["alpha", "beta"],
             "items": [
