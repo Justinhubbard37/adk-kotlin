@@ -16,6 +16,8 @@
 
 package com.google.adk.kt.types
 
+import com.google.adk.kt.annotations.AdkJavaInteropApi
+import kotlin.jvm.JvmStatic
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
@@ -76,4 +78,107 @@ data class Schema(
   val maxLength: Long? = null,
   val minItems: Long? = null,
   val maxItems: Long? = null,
-)
+) {
+  /**
+   * Fluent builder for [Schema], provided primarily for Java callers. Any property left unset falls
+   * back to the same default as the constructor.
+   */
+  @Suppress("ScopeReceiverThis") // Java-style builder for Java interop.
+  class Builder {
+    private var type: Type? = null
+    private var properties: Map<String, Schema>? = null
+    private var items: Schema? = null
+    private var required: List<String>? = null
+    private var description: String? = null
+    private var enum: List<String>? = null
+    private var format: String? = null
+    private var nullable: Boolean? = null
+    private var default: Any? = null
+    private var anyOf: List<Schema>? = null
+    private var title: String? = null
+    private var pattern: String? = null
+    private var minimum: Double? = null
+    private var maximum: Double? = null
+    private var minLength: Long? = null
+    private var maxLength: Long? = null
+    private var minItems: Long? = null
+    private var maxItems: Long? = null
+
+    fun type(type: Type?): Builder = apply { this.type = type }
+
+    fun properties(properties: Map<String, Schema>?): Builder = apply {
+      this.properties = properties
+    }
+
+    fun items(items: Schema?): Builder = apply { this.items = items }
+
+    fun required(required: List<String>?): Builder = apply { this.required = required }
+
+    fun required(vararg required: String): Builder = apply { this.required = required.toList() }
+
+    fun description(description: String?): Builder = apply { this.description = description }
+
+    fun enum(enum: List<String>?): Builder = apply { this.enum = enum }
+
+    fun enum(vararg enum: String): Builder = apply { this.enum = enum.toList() }
+
+    /** Sets [enum]. Java callers need this because `enum` is a reserved word in Java. */
+    fun enumValues(enumValues: List<String>?): Builder = apply { this.enum = enumValues }
+
+    /** Sets [enum]. Java callers need this because `enum` is a reserved word in Java. */
+    fun enumValues(vararg enumValues: String): Builder = apply { this.enum = enumValues.toList() }
+
+    fun format(format: String?): Builder = apply { this.format = format }
+
+    fun nullable(nullable: Boolean?): Builder = apply { this.nullable = nullable }
+
+    /** Sets [Schema.default]; named [defaultValue] because `default` is a reserved word in Java. */
+    fun defaultValue(defaultValue: Any?): Builder = apply { this.default = defaultValue }
+
+    fun anyOf(anyOf: List<Schema>?): Builder = apply { this.anyOf = anyOf }
+
+    fun anyOf(vararg anyOf: Schema): Builder = apply { this.anyOf = anyOf.toList() }
+
+    fun title(title: String?): Builder = apply { this.title = title }
+
+    fun pattern(pattern: String?): Builder = apply { this.pattern = pattern }
+
+    fun minimum(minimum: Double?): Builder = apply { this.minimum = minimum }
+
+    fun maximum(maximum: Double?): Builder = apply { this.maximum = maximum }
+
+    fun minLength(minLength: Long?): Builder = apply { this.minLength = minLength }
+
+    fun maxLength(maxLength: Long?): Builder = apply { this.maxLength = maxLength }
+
+    fun minItems(minItems: Long?): Builder = apply { this.minItems = minItems }
+
+    fun maxItems(maxItems: Long?): Builder = apply { this.maxItems = maxItems }
+
+    fun build(): Schema =
+      Schema(
+        type = type,
+        properties = properties,
+        items = items,
+        required = required,
+        description = description,
+        enum = enum,
+        format = format,
+        nullable = nullable,
+        default = default,
+        anyOf = anyOf,
+        title = title,
+        pattern = pattern,
+        minimum = minimum,
+        maximum = maximum,
+        minLength = minLength,
+        maxLength = maxLength,
+        minItems = minItems,
+        maxItems = maxItems,
+      )
+  }
+
+  companion object {
+    @AdkJavaInteropApi @JvmStatic fun builder(): Builder = Builder()
+  }
+}

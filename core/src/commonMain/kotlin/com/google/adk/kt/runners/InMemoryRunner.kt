@@ -17,6 +17,7 @@
 package com.google.adk.kt.runners
 
 import com.google.adk.kt.agents.BaseAgent
+import com.google.adk.kt.annotations.AdkJavaInteropApi
 import com.google.adk.kt.apps.App
 import com.google.adk.kt.artifacts.ArtifactService
 import com.google.adk.kt.artifacts.InMemoryArtifactService
@@ -26,6 +27,7 @@ import com.google.adk.kt.plugins.Plugin
 import com.google.adk.kt.plugins.PluginManager
 import com.google.adk.kt.sessions.InMemorySessionService
 import com.google.adk.kt.sessions.SessionService
+import kotlin.jvm.JvmStatic
 
 /**
  * An in-memory implementation of a [Runner] that manages the lifecycle of a [BaseAgent] execution.
@@ -67,4 +69,86 @@ open class InMemoryRunner : AbstractRunner {
     memoryService: MemoryService? = InMemoryMemoryService(),
     skipClosingPlugins: Boolean = false,
   ) : super(app, sessionService, artifactService, memoryService, skipClosingPlugins)
+
+  /**
+   * Fluent builder for [InMemoryRunner], provided primarily for Java callers. Any property left
+   * unset falls back to the same default as the constructor.
+   */
+  @Suppress("ScopeReceiverThis") // Java-style builder for Java interop.
+  class Builder {
+    private var agent: BaseAgent? = null
+    private var app: App? = null
+    private var appName: String? = null
+    private var sessionService: SessionService = InMemorySessionService()
+    private var artifactService: ArtifactService? = InMemoryArtifactService()
+    private var memoryService: MemoryService? = InMemoryMemoryService()
+    private var plugins: List<Plugin>? = null
+    private var skipClosingPlugins: Boolean? = null
+
+    fun agent(agent: BaseAgent): Builder = apply { this.agent = agent }
+
+    fun app(app: App): Builder = apply { this.app = app }
+
+    /** Applies only when building from an agent; an App provides its own name. */
+    fun appName(appName: String): Builder = apply { this.appName = appName }
+
+    fun sessionService(sessionService: SessionService): Builder = apply {
+      this.sessionService = sessionService
+    }
+
+    fun artifactService(artifactService: ArtifactService?): Builder = apply {
+      this.artifactService = artifactService
+    }
+
+    fun memoryService(memoryService: MemoryService?): Builder = apply {
+      this.memoryService = memoryService
+    }
+
+    /** Applies only when building from an agent; an App carries its own plugins. */
+    fun plugins(plugins: List<Plugin>): Builder = apply { this.plugins = plugins }
+
+    /** Applies only when building from an App. */
+    fun skipClosingPlugins(skipClosingPlugins: Boolean): Builder = apply {
+      this.skipClosingPlugins = skipClosingPlugins
+    }
+
+    fun build(): InMemoryRunner {
+      val agent = agent
+      val app = app
+      check((agent == null) != (app == null)) {
+        "InMemoryRunner.Builder requires exactly one of agent or app to be set."
+      }
+      return if (app != null) {
+        check(appName == null) {
+          "appName applies only when building from an agent; an App provides its own name."
+        }
+        check(plugins == null) {
+          "plugins apply only when building from an agent; an App carries its own plugins."
+        }
+        InMemoryRunner(
+          app = app,
+          sessionService = sessionService,
+          artifactService = artifactService,
+          memoryService = memoryService,
+          skipClosingPlugins = skipClosingPlugins ?: false,
+        )
+      } else {
+        check(skipClosingPlugins == null) {
+          "skipClosingPlugins applies only when building from an App."
+        }
+        InMemoryRunner(
+          agent = agent!!,
+          appName = appName ?: "InMemoryRunner",
+          sessionService = sessionService,
+          artifactService = artifactService,
+          memoryService = memoryService,
+          plugins = plugins ?: emptyList(),
+        )
+      }
+    }
+  }
+
+  companion object {
+    @AdkJavaInteropApi @JvmStatic fun builder(): Builder = Builder()
+  }
 }

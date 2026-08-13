@@ -19,6 +19,7 @@ package com.google.adk.kt.tools
 import com.google.adk.kt.SchemaUtils
 import com.google.adk.kt.agents.BaseAgent
 import com.google.adk.kt.agents.LlmAgent
+import com.google.adk.kt.annotations.AdkJavaInteropApi
 import com.google.adk.kt.apps.App
 import com.google.adk.kt.artifacts.ForwardingArtifactService
 import com.google.adk.kt.runners.InMemoryRunner
@@ -32,6 +33,7 @@ import com.google.adk.kt.types.Part
 import com.google.adk.kt.types.Role
 import com.google.adk.kt.types.Schema
 import com.google.adk.kt.types.Type
+import kotlin.jvm.JvmStatic
 import kotlinx.coroutines.flow.lastOrNull
 
 /**
@@ -174,7 +176,43 @@ open class AgentTool(
     return ""
   }
 
+  /**
+   * Fluent builder for [AgentTool], provided primarily for Java callers. Any property left unset
+   * falls back to the same default as the constructor.
+   */
+  @Suppress("ScopeReceiverThis") // Java-style builder for Java interop.
+  class Builder {
+    private var agent: BaseAgent? = null
+    private var skipSummarization: Boolean = false
+    private var includePlugins: Boolean = true
+    private var propagateGroundingMetadata: Boolean = false
+
+    fun agent(agent: BaseAgent): Builder = apply { this.agent = agent }
+
+    fun skipSummarization(skipSummarization: Boolean): Builder = apply {
+      this.skipSummarization = skipSummarization
+    }
+
+    fun includePlugins(includePlugins: Boolean): Builder = apply {
+      this.includePlugins = includePlugins
+    }
+
+    fun propagateGroundingMetadata(propagateGroundingMetadata: Boolean): Builder = apply {
+      this.propagateGroundingMetadata = propagateGroundingMetadata
+    }
+
+    fun build(): AgentTool =
+      AgentTool(
+        agent = checkNotNull(agent) { "AgentTool.Builder requires agent to be set." },
+        skipSummarization = skipSummarization,
+        includePlugins = includePlugins,
+        propagateGroundingMetadata = propagateGroundingMetadata,
+      )
+  }
+
   companion object {
+    @AdkJavaInteropApi @JvmStatic fun builder(): Builder = Builder()
+
     private const val REQUEST_KEY = "request"
 
     /** Temp state key under which propagated grounding metadata is stored. */
