@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.8.0](https://github.com/google/adk-kotlin/compare/v0.7.0...v0.8.0) (2026-08-15)
+
+
+### Features
+
+* add a BigQuery agent analytics plugin ([485f1f8](https://github.com/google/adk-kotlin/commit/485f1f81b0445bf5bab44b941359a42353d1f51b))
+* add an on-device LiteRT-LM chat example to the Android examples app ([39fd962](https://github.com/google/adk-kotlin/commit/39fd962418847cd2ec45411daec8bafcb656c549))
+* add first batch of Java-friendly builders to ADK Kotlin ([f8308fc](https://github.com/google/adk-kotlin/commit/f8308fc7e8a6bd3b2d11462d73b29b3ccbc21ea9))
+* add Java ports of the first wave of ADK Kotlin examples ([e13b607](https://github.com/google/adk-kotlin/commit/e13b6070db5953db32341030035e2de91f04d042))
+* add Java-friendly interop layer to ADK Kotlin ([d6e4fb7](https://github.com/google/adk-kotlin/commit/d6e4fb7ab32d570f29c725225efbb37912872ae7))
+* add MCP tool demo example ([c04d6d9](https://github.com/google/adk-kotlin/commit/c04d6d93e629b72c30860824b9c3cbaed8169994))
+* add streaming response support in the Firebase model backend ([805a131](https://github.com/google/adk-kotlin/commit/805a131c92bdb95608bf1489af5b97705260c54b))
+* capture the place-answer text on Maps grounding chunks ([a47dda0](https://github.com/google/adk-kotlin/commit/a47dda0e3f9ca40a7ddef172b8b55ad8e33900af))
+* carry the JSON Schema constraint fields on Schema ([d0547f9](https://github.com/google/adk-kotlin/commit/d0547f99c33bca84e415636f5a38d2cb5fae3ac3))
+* keep thought signature and tool call parts through streaming and history ([17e7519](https://github.com/google/adk-kotlin/commit/17e75193731a461d02f8226a806f5a22d83d72a4))
+* **mcp:** keep MCP tool schema constraints and surface tool output schemas ([cbc9d0a](https://github.com/google/adk-kotlin/commit/cbc9d0a9b2491393ffd98b10e37528abb57b1c0c))
+* preserve nested null values when converting to the GenAI SDK ([22e1d59](https://github.com/google/adk-kotlin/commit/22e1d59acbd576474b3ffc708dc5abd0636d51a3))
+* preserve null values in event custom metadata ([b3cfe8f](https://github.com/google/adk-kotlin/commit/b3cfe8f462c5769fad0adb3d698d22f775219a49))
+* preserve null values in tool arguments ([d698275](https://github.com/google/adk-kotlin/commit/d6982754d10ee377780701ee5b2063105e78f1ec))
+* preserve null values in tool FunctionResponse ([9164ed7](https://github.com/google/adk-kotlin/commit/9164ed77d2d41cd6caa9c359499ad97a2b1460f5))
+* **processor:** declare the response shape of @Tool functions ([6f1009a](https://github.com/google/adk-kotlin/commit/6f1009a25ceec9003d8d650ad11fb644dd7c2632))
+
+
+### Bug Fixes
+
+* **a2a:** put JSpecify on the compile classpath ([72731ca](https://github.com/google/adk-kotlin/commit/72731ca703377af34458b1356d7b313a65fead11))
+* align ML Kit streaming responses with the other model backends ([c597ded](https://github.com/google/adk-kotlin/commit/c597ded26e2beff008c8274c5a4cccc90f67effc))
+* carry model-callback actions onto the emitted event ([35f04af](https://github.com/google/adk-kotlin/commit/35f04af718db680b80944a5c201b9f922f4322b4))
+* **core:** only resume tool confirmations for calls this agent emitted ([00cbc52](https://github.com/google/adk-kotlin/commit/00cbc525ef73f9f7333febd224315162477c9c56))
+* emit a final streaming response when a turn ends without text ([cb236b4](https://github.com/google/adk-kotlin/commit/cb236b483262939203055ca8a94d5c4cb0052815))
+* **mcp:** stop failing on null-typed MCP tool schemas and keep enum values ([06e7926](https://github.com/google/adk-kotlin/commit/06e7926b0f19fb4c595906775401fa6e1b63487d))
+* **mcp:** stop toolFilter dropping the tools useMcpResources adds ([07e7fb7](https://github.com/google/adk-kotlin/commit/07e7fb7de83c72afb08aacebdb4d2d29af43f27c))
+* **processor:** stop generating an unchecked cast for data class parameters ([80b2dd8](https://github.com/google/adk-kotlin/commit/80b2dd837c905feaf5f0a7397d5d1e203f5e284b))
+* propagate the model response error code and custom metadata to events ([be9ecec](https://github.com/google/adk-kotlin/commit/be9ecec0b86dc416ccaaafe00a349fa9ff09f067))
+* release a cancelled LiteRT-LM conversation promptly instead of stalling ([df91e30](https://github.com/google/adk-kotlin/commit/df91e308609d4e24bcfea3da9ad93528e61da973))
+* stop the ML Kit model echoing role markers and earlier turns ([f02a07c](https://github.com/google/adk-kotlin/commit/f02a07cc8cb2308b8fb5e3268a6b28917ee63a60))
+* update Kotlin ADK RemoteA2AAgent to handle all terminal and interrupted task states ([e1d3474](https://github.com/google/adk-kotlin/commit/e1d3474c170eb4ddeb8fab4f696c790cfbce33d9))
+
+
+### Performance Improvements
+
+* Improved the InMemorySessionService performance ([7e07177](https://github.com/google/adk-kotlin/commit/7e071776daf0d35546b69d79ecc3430799fca801))
+
+
+### Documentation
+
+* add runnable long-running tool examples (resumable and non-resumable) ([21340d2](https://github.com/google/adk-kotlin/commit/21340d29d04c196490968f98e0c2a024383e384a))
+
 ## [0.7.0](https://github.com/google/adk-kotlin/compare/v0.6.0...v0.7.0) (2026-08-03)
 
 
