@@ -149,9 +149,9 @@ internal fun ClientEvent.isCompleted(): Boolean {
     when (this) {
       is TaskEvent -> this.task.status.state()
       is TaskUpdateEvent -> this.task.status.state()
-      else -> TaskState.UNRECOGNIZED
+      else -> return false
     }
-  return state == TaskState.TASK_STATE_COMPLETED
+  return state.isFinalState() || state.isInterruptedState()
 }
 
 /** Converts an artifact to an ADK event. */
@@ -207,7 +207,7 @@ internal fun Task.toAdkEvent(invocationContext: InvocationContext): Event {
 
   errorMessage =
     errorMessage ?: DEFAULT_ERROR_MESSAGE.takeIf { status.state() == TaskState.TASK_STATE_FAILED }
-  val isFinal = status.state().isFinal || status.state() == TaskState.TASK_STATE_INPUT_REQUIRED
+  val isFinal = status.state().isFinalState() || status.state().isInterruptedState()
 
   if (adkParts.isEmpty() && !isFinal) {
     return emptyEvent(invocationContext)
@@ -218,7 +218,7 @@ internal fun Task.toAdkEvent(invocationContext: InvocationContext): Event {
       .copy(
         content = if (adkParts.isNotEmpty()) Content(role = Role.MODEL, parts = adkParts) else null,
         longRunningToolIds =
-          if (status.state() == TaskState.TASK_STATE_INPUT_REQUIRED) longRunningToolIds
+          if (status.state().isInterruptedState()) longRunningToolIds
           else emptySet(),
         turnComplete = isFinal,
         errorMessage = errorMessage,
@@ -289,7 +289,7 @@ private fun TaskUpdateEvent.toAdkEvent(context: InvocationContext): Event? {
         }
 
       val finalEvent =
-        if (update.isFinal) {
+        if (status.state().isFinalState() || status.state().isInterruptedState()) {
           val baseEvent = messageEvent ?: remoteAgentEvent(context)
           baseEvent.copy(
             turnComplete = true,
@@ -454,3 +454,22 @@ private fun coerceToMap(value: Any?): Map<String, Any?> =
       }
     else -> mapOf("value" to value)
   }
+
+internal fun TaskState.isFinalState(): Boolean {
+  return when (this) {
+    TaskState.TASK_STATE_COMPLETED,
+    TaskState.TASK_STATE_CANCELED,
+    TaskState.TASK_STATE_FAILED,
+    TaskState.TASK_STATE_REJECTED,
+    TaskState.UNRECOGNIZED -> true
+    else -> false
+  }
+}
+
+internal fun TaskState.isInterruptedState(): Boolean {
+  return when (this) {
+    TaskState.TASK_STATE_INPUT_REQUIRED,
+    TaskState.TASK_STATE_AUTH_REQUIRED -> true
+    else -> false
+  }
+}

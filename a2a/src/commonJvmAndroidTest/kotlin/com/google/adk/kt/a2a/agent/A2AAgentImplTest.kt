@@ -704,6 +704,53 @@ class A2AAgentImplTest {
     Unit
   }
 
+  @Test
+  fun runAsync_terminalAuthRequiredTaskAbandoned_doesNotCancelRemoteTask() = runBlocking {
+    val agent = createTestAgent()
+    mockStreamResponse(this) { consumer ->
+      consumer.accept(
+        createStatusUpdateEvent(TaskState.TASK_STATE_AUTH_REQUIRED, "need auth"),
+        agentCard,
+      )
+    }
+
+    // An auth-required task is terminal, so abandoning the flow must not cancel it.
+    agent.runAsync(invocationContext).first()
+
+    verify(mockClient, after(500).never()).cancelTask(any())
+    Unit
+  }
+
+  @Test
+  fun runAsync_inputRequired_completesFlow() = runTest {
+    val agent = createTestAgent()
+    mockStreamResponse(this) { consumer ->
+      consumer.accept(
+        createStatusUpdateEvent(TaskState.TASK_STATE_INPUT_REQUIRED, "need input"),
+        agentCard,
+      )
+    }
+
+    val events = agent.runAsync(invocationContext).toList()
+    assertThat(events).isNotEmpty()
+    assertThat(events.last().turnComplete).isTrue()
+  }
+
+  @Test
+  fun runAsync_authRequired_completesFlow() = runTest {
+    val agent = createTestAgent()
+    mockStreamResponse(this) { consumer ->
+      consumer.accept(
+        createStatusUpdateEvent(TaskState.TASK_STATE_AUTH_REQUIRED, "need auth"),
+        agentCard,
+      )
+    }
+
+    val events = agent.runAsync(invocationContext).toList()
+    assertThat(events).isNotEmpty()
+    assertThat(events.last().turnComplete).isTrue()
+  }
+
   private fun createTestAgent(
     transportSupportsStreaming: Boolean = true,
     beforeCallbacks: List<BeforeAgentCallback> = emptyList(),

@@ -379,6 +379,38 @@ class A2aConvertersTest {
   }
 
   @Test
+  fun taskToEvent_withAuthRequired_parsesLongRunningToolIds() {
+    val data = mapOf("name" to "myTool", "id" to "call_123", "args" to mapOf<String, Any>())
+    val metadata =
+      mapOf(MetadataKeys.TYPE to TYPE_FUNCTION_CALL, MetadataKeys.IS_LONG_RUNNING to true)
+    val dataPart = DataPart(data, metadata)
+
+    val statusData =
+      mapOf("name" to "messageTools", "id" to "msg_123", "args" to mapOf<String, Any>())
+    val statusMetadata =
+      mapOf(MetadataKeys.TYPE to TYPE_FUNCTION_CALL, MetadataKeys.IS_LONG_RUNNING to true)
+    val statusDataPart = DataPart(statusData, statusMetadata)
+
+    val statusMessage =
+      Message.builder().role(Message.Role.ROLE_AGENT).parts(listOf(statusDataPart)).build()
+    val status = TaskStatus(TaskState.TASK_STATE_AUTH_REQUIRED, statusMessage, null)
+
+    val artifact = Artifact.builder().artifactId("artifact-1").parts(listOf(dataPart)).build()
+    val task =
+      Task.builder()
+        .id("task-1")
+        .contextId("context-1")
+        .status(status)
+        .artifacts(listOf(artifact))
+        .build()
+
+    val result = task.toAdkEvent(invocationContext)
+    assertThat(result).isNotNull()
+    assertThat(result.longRunningToolIds).isEqualTo(setOf("call_123", "msg_123"))
+    assertThat(result.turnComplete).isTrue()
+  }
+
+  @Test
   fun taskToEvent_withGroundingMetadata_returnsEvent() {
     val statusMessage =
       Message.builder()
@@ -844,6 +876,63 @@ class A2aConvertersTest {
     val event = TaskUpdateEvent(task, updateEvent)
 
     assertThat(event.isCompleted()).isFalse()
+  }
+
+  @Test
+  fun isCompleted_withTaskEventFailed_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_FAILED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val event = TaskEvent(task)
+
+    assertThat(event.isCompleted()).isTrue()
+  }
+
+  @Test
+  fun isCompleted_withTaskEventInputRequired_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val event = TaskEvent(task)
+
+    assertThat(event.isCompleted()).isTrue()
+  }
+
+  @Test
+  fun isCompleted_withTaskEventAuthRequired_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_AUTH_REQUIRED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val event = TaskEvent(task)
+
+    assertThat(event.isCompleted()).isTrue()
+  }
+
+  @Test
+  fun isCompleted_withTaskUpdateEventFailed_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_FAILED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val updateEvent = TaskStatusUpdateEvent("task-1", status, "context-1", null)
+    val event = TaskUpdateEvent(task, updateEvent)
+
+    assertThat(event.isCompleted()).isTrue()
+  }
+
+  @Test
+  fun isCompleted_withTaskUpdateEventInputRequired_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_INPUT_REQUIRED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val updateEvent = TaskStatusUpdateEvent("task-1", status, "context-1", null)
+    val event = TaskUpdateEvent(task, updateEvent)
+
+    assertThat(event.isCompleted()).isTrue()
+  }
+
+  @Test
+  fun isCompleted_withTaskUpdateEventAuthRequired_returnsTrue() {
+    val status = TaskStatus(TaskState.TASK_STATE_AUTH_REQUIRED)
+    val task = Task.builder().id("task-1").contextId("context-1").status(status).build()
+    val updateEvent = TaskStatusUpdateEvent("task-1", status, "context-1", null)
+    val event = TaskUpdateEvent(task, updateEvent)
+
+    assertThat(event.isCompleted()).isTrue()
   }
 
   @Test

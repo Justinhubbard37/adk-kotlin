@@ -17,6 +17,8 @@
 package com.google.adk.kt.a2a.agent
 
 import com.google.adk.kt.a2a.converters.isCompleted
+import com.google.adk.kt.a2a.converters.isFinalState
+import com.google.adk.kt.a2a.converters.isInterruptedState
 import com.google.adk.kt.a2a.converters.isLastChunk
 import com.google.adk.kt.a2a.converters.shouldBuffer
 import com.google.adk.kt.a2a.converters.shouldResetBuffer
@@ -244,6 +246,5 @@ internal class A2AAgentImpl(
       is TaskUpdateEvent -> JsonUtil.toJson(event.task)
     }
 
-  private fun isTerminal(state: TaskState): Boolean =
-    state.isFinal || state == TaskState.TASK_STATE_INPUT_REQUIRED
+  private fun isTerminal(state: TaskState): Boolean = state.isFinalState() || state.isInterruptedState()
 }
