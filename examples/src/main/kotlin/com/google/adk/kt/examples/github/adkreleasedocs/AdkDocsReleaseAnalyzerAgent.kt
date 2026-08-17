@@ -17,6 +17,8 @@
 package com.google.adk.kt.examples.github.adkreleasedocs
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.google.adk.kt.agents.Instruction
@@ -164,12 +166,10 @@ private const val USER_ID = "adk_docs_release_analyzer_user"
  * Console entry point. Run with no options to analyze the two most recent releases, or pass
  * `--start-tag`/`--end-tag` to analyze a specific range.
  */
-private class AdkDocsReleaseAnalyzerCommand :
-  CliktCommand(
-    name = "adk-docs-release-analyzer",
-    help =
-      "Analyzes the differences between two ADK releases and files a docs issue (dry-run by default).",
-  ) {
+private class AdkDocsReleaseAnalyzerCommand : CliktCommand(name = "adk-docs-release-analyzer") {
+
+  override fun help(context: Context): String =
+    "Analyzes the differences between two ADK releases and files a docs issue (dry-run by default)."
 
   private val startTag: String? by
     option(
