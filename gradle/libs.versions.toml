@@ -23,7 +23,6 @@ google-firebase-platform = "34.16.0"
 google-genai-kotlin = "0.3.0"
 google-gson = "2.10.1"
 google-mlkit-genai = "1.0.0-beta3"
-google-protobuf-javalite = "3.25.5"
 google-services = "4.4.4"
 google-truth = "1.4.5"
 gradle-test-retry = "1.6.5"
@@ -33,7 +32,6 @@ junit = "4.13.2"
 kotlin = "2.3.21"
 kotlinx-atomicfu = "0.27.0"
 kotlinx-coroutines = "1.11.0"
-kotlinx-datetime = "0.6.2"
 kotlinx-serialization = "1.6.3"
 ksp = "2.3.9"
 ktor = "2.3.13"
@@ -64,11 +62,8 @@ androidx-compose-foundation = { module = "androidx.compose.foundation:foundation
 androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
-androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-ui" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-ui" }
-androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
-androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "androidx-room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "androidx-room" }
@@ -76,7 +71,6 @@ androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test-core" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
-androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidx-test-core" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test-core" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 github-api = { module = "org.kohsuke:github-api", version.ref = "github-api" }
@@ -91,7 +85,6 @@ google-flogger-extensions = { module = "com.google.flogger:google-extensions", v
 google-genai-kotlin = { module = "com.google.genai:google-genai-kotlin", version.ref = "google-genai-kotlin" }
 google-gson = { module = "com.google.code.gson:gson", version.ref = "google-gson" }
 google-mlkit-genai-prompt = { module = "com.google.mlkit:genai-prompt", version.ref = "google-mlkit-genai" }
-google-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "google-protobuf-javalite" }
 google-truth = { module = "com.google.truth:truth", version.ref = "google-truth" }
 graphviz-java = { module = "guru.nidi:graphviz-java", version.ref = "graphviz" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
@@ -103,11 +96,9 @@ kotlinx-coroutines-guava = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-reactive = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactive", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-reactor = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactor", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
-kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }
-ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }

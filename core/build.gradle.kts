@@ -60,7 +60,6 @@ kotlin {
         dependencies {
           implementation(libs.kotlinx.atomicfu)
           implementation(libs.kotlinx.coroutines.core)
-          implementation(libs.kotlinx.datetime)
           implementation(libs.kotlinx.serialization)
           api(libs.google.genai.kotlin)
         }
@@ -158,7 +157,6 @@ kotlin {
         implementation(libs.androidx.compose.ui.test.manifest)
         implementation(libs.androidx.test.espresso.core)
         implementation(libs.androidx.test.ext.junit)
-        implementation(libs.androidx.test.rules)
         implementation(libs.androidx.test.runner)
         implementation(libs.google.truth)
         implementation(libs.kotlinx.coroutines.test)

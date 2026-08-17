@@ -134,9 +134,6 @@ dependencies {
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
-  implementation(libs.androidx.compose.ui.graphics)
-  implementation(libs.androidx.compose.ui.tooling.preview)
-  debugImplementation(libs.androidx.compose.ui.tooling)
 
   // Generates the `@Tool` FunctionTools for the Firebase and LiteRT-LM examples.
   ksp(project(":google-adk-kotlin-processor"))

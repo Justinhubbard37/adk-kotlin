@@ -44,7 +44,6 @@ sourceSets {
 
 dependencies {
   implementation(project(":google-adk-kotlin-core"))
-  implementation(libs.kotlinx.datetime)
   implementation(libs.kotlinx.serialization)
 
   implementation(libs.graphviz.java)
