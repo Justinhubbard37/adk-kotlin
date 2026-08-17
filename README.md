@@ -41,6 +41,12 @@ debugging, versioning, and deployment anywhere – from your laptop to the cloud
 -   **Modular Multi-Agent Systems**: Design scalable applications by composing
     multiple specialized agents into flexible hierarchies.
 
+-   **On-device & Cloud Agents on Android**: Run agents fully on-device with
+    LiteRT-LM (with tool calling) or Gemini Nano via ML Kit, reach the cloud
+    with Firebase AI, and compose on-device and cloud models into a single
+    hybrid system. See
+    [On-device and Cloud Agents on Android](#-on-device-and-cloud-agents-on-android).
+
 ## 🚀 Installation
 
 If you're using Maven, add the following to your dependencies:
@@ -109,6 +115,47 @@ val rootAgent = LlmAgent(
 GenAI SDK based `Gemini` currently prevents usage of `API_KEY` and
 `GoogleCredentials` on Android. Use Firebase AI instead.
 
+### 📱 On-device and Cloud Agents on Android
+
+ADK Kotlin agents run on Android either **fully on-device** — no API key and no
+network at inference time, for offline, low-latency, or privacy-sensitive use —
+or against the **cloud**. Every backend is a `Model` behind the same `LlmAgent`
+API, so switching between them is a one-line change.
+
+Backend     | Module                               | Inference | Tools
+----------- | ------------------------------------ | --------- | ---------
+LiteRT-LM   | `google-adk-kotlin-litertlm`         | On-device | ✅ Yes
+ML Kit      | `google-adk-kotlin-mlkit-android`    | On-device | ❌ Not yet
+Firebase AI | `google-adk-kotlin-firebase-android` | Cloud     | ✅ Yes
+
+-   **LiteRT-LM** runs open models such as Gemma on-device through
+    [LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM), Google's on-device
+    inference framework, with **full tool / function calling** so an on-device
+    agent can drive custom tools. It runs on both Android and the JVM (desktop).
+    See [litertlm/README.md](litertlm/README.md).
+-   **ML Kit (Gemini Nano)** runs the built-in Gemini Nano model through the ML
+    Kit GenAI Prompt API. It is Android-only and published as a `-beta`
+    pre-release; **tool calling is not supported yet** (`functionCall` /
+    `functionResponse` parts are dropped), so use it for plain chat/generation
+    for now.
+-   **Firebase AI** reaches a cloud Gemini model through Firebase AI Logic — the
+    recommended way to call Gemini from Android without embedding an API key —
+    with full tool calling.
+
+#### Hybrid on-device + cloud systems
+
+Because on-device and cloud models are interchangeable `Model` implementations,
+you can **compose them into a single multi-agent system**: an on-device agent
+can handle offline, cheap, or privacy-sensitive turns and delegate harder tasks
+to a cloud agent, all within one `LlmAgent` hierarchy. See
+[Modular Multi-Agent Systems](#-key-features) for how agents are composed.
+
+All three backends have runnable multi-turn chat examples in the
+[`examples/android/`](examples/android) Compose app — **LiteRT-LM chat**, **ML
+Kit chat**, and **Firebase AI**. See the
+[Android examples README](examples/android/README.md) for how to build and run
+the app, obtain the on-device models, and configure Firebase.
+
 ### Development UI
 
 Same as the beloved Python Development UI.
@@ -123,7 +170,9 @@ The snippet above is the short version. Every runnable example lives under the
 *   [`examples/`](examples) — JVM examples.
 
 *   [`examples/android/`](examples/android) — a Compose app showing the Android
-    side.
+    side, including the on-device (LiteRT-LM, ML Kit) and cloud (Firebase AI)
+    agents described in
+    [On-device and Cloud Agents on Android](#-on-device-and-cloud-agents-on-android).
 
 ## 🤝 Contributing
 
