@@ -16,12 +16,15 @@
 
 package com.google.adk.kt.litertlm
 
+import com.google.adk.kt.annotations.FrameworkInternalApi
 import com.google.adk.kt.logging.LoggerFactory
 import com.google.adk.kt.models.LlmRequest
 import com.google.adk.kt.models.LlmResponse
 import com.google.adk.kt.models.Model
+import com.google.adk.kt.models.StreamingResponseAggregator
 import com.google.adk.kt.serialization.Json
 import com.google.adk.kt.types.Content as AdkContent
+import com.google.adk.kt.types.FinishReason
 import com.google.adk.kt.types.FunctionCall as AdkFunctionCall
 import com.google.adk.kt.types.FunctionDeclaration
 import com.google.adk.kt.types.Part as AdkPart
@@ -38,10 +41,14 @@ import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.Role as LiteRtLmRole
 import com.google.ai.edge.litertlm.ToolCall as LiteRtLmToolCall
 import com.google.ai.edge.litertlm.tool
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -96,128 +103,132 @@ private constructor(
     // which must not reach the logs.
     logger.trace { "generateContent: ${request.contents.size} content(s), stream: $stream" }
 
-    if (stream) {
-      return callbackFlow {
-        conversationMutex.withLock {
-          val (conversation, liteRtLmLastMessage) =
-            try {
-              getOrCreateConversation(request)
-            } catch (e: Exception) {
-              val unused = trySend(LlmResponse(errorMessage = e.message ?: e.toString()))
-              channel.close()
-              return@withLock
-            }
+    return if (stream) generateContentStreaming(request) else generateContentNonStreaming(request)
+  }
 
-          var isCompleted = false
-          var isAbandoned = false
-          val accumulatedText = StringBuilder()
-          var lastResponse: LlmResponse? = null
+  /**
+   * Streams responses through the shared [StreamingResponseAggregator]: every chunk is emitted as a
+   * partial [LlmResponse], followed by a single aggregated final response.
+   *
+   * On success the conversation cache is committed from the aggregated response; a content-free
+   * turn discards it. A generation error or cancellation propagates to the collector, so the
+   * agent's error handling runs, discarding the incomplete conversation on the way out.
+   */
+  @OptIn(FrameworkInternalApi::class)
+  private fun generateContentStreaming(request: LlmRequest): Flow<LlmResponse> = flow {
+    // The lock is released before the final response, the only one that triggers tool dispatch,
+    // so a tool re-entering this model can take the lock instead of deadlocking. Partials are
+    // emitted under the lock; one that precedes an error still reaches the caller.
+    val finalResponse = conversationMutex.withLock {
+      val (conversation, liteRtLmLastMessage) = getOrCreateConversation(request)
 
-          conversation.sendMessageAsync(
-            liteRtLmLastMessage,
-            object : MessageCallback {
-              override fun onMessage(message: LiteRtLmMessage) {
-                val response = message.toLlmResponse(partial = true)
+      val aggregator = StreamingResponseAggregator()
+      conversation
+        .rawStreamingResponses(liteRtLmLastMessage)
+        .map { aggregator.processResponse(it) }
+        .onCompletion { cause ->
+          // Error, cancellation, or caller failure leaves the conversation incomplete; discard it.
+          if (cause != null) discardActiveConversation()
+        }
+        .collect { emit(it) }
 
-                response.content?.parts?.forEach { part ->
-                  part.text?.let { accumulatedText.append(it) }
-                }
-
-                lastResponse = response
-                val unused = trySend(response)
-              }
-
-              override fun onDone() {
-                val finalParts = mutableListOf<AdkPart>()
-                if (accumulatedText.isNotEmpty()) {
-                  finalParts.add(AdkPart(text = accumulatedText.toString()))
-                }
-                lastResponse
-                  ?.content
-                  ?.parts
-                  ?.filter { it.functionCall != null }
-                  ?.let { finalParts.addAll(it) }
-
-                val finalResponse =
-                  LlmResponse(
-                    content = AdkContent(role = "model", parts = finalParts),
-                    partial = false,
-                  )
-
-                synchronized(activeConversation) {
-                  // Skipped once abandoned, so a late callback cannot re-register a released one.
-                  if (!isAbandoned) {
-                    finalResponse.content?.let { modelResponseContent ->
-                      activeConversation.update(
-                        conversation,
-                        request.contents + modelResponseContent,
-                      )
-                    }
-                  }
-                  isCompleted = true
-                }
-
-                val unused = trySend(finalResponse)
-                channel.close()
-              }
-
-              override fun onError(throwable: Throwable) {
-                // Discard conversation on generation failures.
-                discardActiveConversation()
-                val unused =
-                  trySend(LlmResponse(errorMessage = throwable.message ?: throwable.toString()))
-                synchronized(activeConversation) { isCompleted = true }
-                channel.close(throwable)
-              }
-            },
+      // LiteRT-LM reports completion through onDone and errors through onError, so a turn that
+      // finishes always stops normally. Report STOP on the aggregated final, as the other backends
+      // do, so Event.finishReason and the call_llm span are populated.
+      val finalResponse = aggregator.aggregate()?.copy(finishReason = FinishReason.STOP)
+      val modelResponseContent = finalResponse?.content
+      if (modelResponseContent != null) {
+        // Commit the aggregated turn as the next turn's cache key.
+        synchronized(activeConversation) {
+          activeConversation.update(
+            conversation,
+            request.contents + modelResponseContent.withoutGeneratedFunctionCallIds(),
           )
-          awaitClose {
-            // Cancelled before completion, so the conversation state is incomplete: discard it.
-            val abandoned =
-              synchronized(activeConversation) {
-                if (isCompleted) null
-                else {
-                  isAbandoned = true
-                  activeConversation.detach()
-                }
-              }
-            abandoned?.let { releaseConversation(it) }
-          }
         }
+      } else {
+        // A content-free turn leaves the native conversation ambiguous, so discard it.
+        discardActiveConversation()
       }
-    } else {
-      return flow {
-        conversationMutex.withLock {
-          val (conversation, liteRtLmLastMessage) =
-            try {
-              getOrCreateConversation(request)
-            } catch (e: Exception) {
-              emit(LlmResponse(errorMessage = e.message ?: e.toString()))
-              return@withLock
-            }
+      finalResponse
+    }
+    finalResponse?.let { emit(it) }
+  }
 
-          try {
-            val responseMessage = conversation.sendMessage(liteRtLmLastMessage)
-            val response = responseMessage.toLlmResponse(partial = false)
-            // Update the cache key on successful generation completion to be the requests's
-            // contents
-            // followed by the model's generated response. This prepares the cache for the next
-            // turn.
-            response.content?.let { modelResponseContent ->
-              synchronized(activeConversation) {
-                activeConversation.update(conversation, request.contents + modelResponseContent)
-              }
-            }
-            emit(response)
-          } catch (e: Exception) {
-            // Discard conversation on generation failures.
-            discardActiveConversation()
-            emit(LlmResponse(errorMessage = e.message ?: e.toString()))
+  /** Generates a single non-streaming response, committing or discarding the conversation cache. */
+  private fun generateContentNonStreaming(request: LlmRequest): Flow<LlmResponse> = flow {
+    // Emit after releasing the lock, so a tool re-entering this model can take it instead of
+    // deadlocking. Emitting outside the try also preserves the original exception if the caller
+    // throws while consuming the response.
+    val response = conversationMutex.withLock {
+      val (conversation, liteRtLmLastMessage) = getOrCreateConversation(request)
+      try {
+        // A returned message is a normal completion (errors throw instead), so report STOP, as the
+        // other backends do, to populate Event.finishReason and the call_llm span.
+        val modelResponse =
+          conversation
+            .sendMessage(liteRtLmLastMessage)
+            .toLlmResponse(partial = false)
+            .copy(finishReason = FinishReason.STOP)
+        // Commit the cache key (request contents + model response) for the next turn.
+        modelResponse.content?.let { modelResponseContent ->
+          synchronized(activeConversation) {
+            activeConversation.update(
+              conversation,
+              request.contents + modelResponseContent.withoutGeneratedFunctionCallIds(),
+            )
           }
         }
+        modelResponse
+      } catch (e: Exception) {
+        // Discard the incomplete conversation, then let the error reach the collector.
+        discardActiveConversation()
+        throw e
       }
     }
+    emit(response)
   }
+
+  /**
+   * Bridges the callback-based [LiteRtLmConversation.sendMessageAsync] into a cold flow of raw,
+   * un-aggregated partial responses.
+   *
+   * This must be a [callbackFlow] rather than a plain [flow]: LiteRT-LM invokes [MessageCallback]
+   * on a native/JNI thread, which cannot call a `flow` builder's suspending `emit`, whereas the
+   * channel's `trySend` is safe to call from any thread. The channel is buffered
+   * [Channel.UNLIMITED] so a slow collector never causes a chunk to be dropped.
+   *
+   * A content-free chunk carries no text and no tool call, so it has nothing to aggregate and is
+   * dropped here rather than surfaced to the caller as an empty partial response (see
+   * [isContentFree]).
+   */
+  private fun LiteRtLmConversation.rawStreamingResponses(
+    message: LiteRtLmMessage
+  ): Flow<LlmResponse> =
+    callbackFlow {
+        sendMessageAsync(
+          message,
+          object : MessageCallback {
+            override fun onMessage(message: LiteRtLmMessage) {
+              val response = message.toLlmResponse(partial = true)
+              if (!response.isContentFree()) {
+                val unused = trySend(response)
+              }
+            }
+
+            override fun onDone() {
+              channel.close()
+            }
+
+            override fun onError(throwable: Throwable) {
+              channel.close(throwable)
+            }
+          },
+        )
+        // sendMessageAsync exposes no cancellation handle, so there is nothing to unregister here;
+        // discarding an incomplete conversation on cancellation is handled by the collector.
+        awaitClose {}
+      }
+      .buffer(Channel.UNLIMITED)
 
   private fun getOrCreateConversation(
     request: LlmRequest
@@ -408,6 +419,34 @@ fun LiteRtLmMessage.toLlmResponse(partial: Boolean = false): LlmResponse {
   }
 
   return LlmResponse(content = AdkContent(role = "model", parts = adkParts), partial = partial)
+}
+
+/**
+ * True if there is nothing to aggregate: no function call and no non-empty text. Dropping such a
+ * chunk loses nothing because [toLlmResponse] populates only content, never a finish reason, usage,
+ * or error.
+ */
+private fun LlmResponse.isContentFree(): Boolean =
+  content?.parts?.none { it.functionCall != null || !it.text.isNullOrEmpty() } ?: true
+
+/**
+ * Drops the function call ids the aggregator generates, since the framework strips them from the
+ * history it sends back. Keeping them would make the cache key of a tool-calling turn unmatchable.
+ */
+private fun AdkContent.withoutGeneratedFunctionCallIds(): AdkContent {
+  fun AdkFunctionCall.isGenerated() =
+    id?.startsWith(AdkFunctionCall.ADK_FUNCTION_CALL_ID_PREFIX) == true
+
+  if (parts.none { it.functionCall?.isGenerated() == true }) return this
+  return copy(
+    parts =
+      parts.map { part ->
+        val functionCall = part.functionCall
+        if (functionCall?.isGenerated() == true)
+          part.copy(functionCall = functionCall.copy(id = null))
+        else part
+      }
+  )
 }
 
 // --- Manual Tool Adapter ---

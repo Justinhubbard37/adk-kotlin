@@ -48,3 +48,23 @@ Once downloaded, the model will be stored in the local registry at:
 
 For more CLI details and options, refer to the
 [LiteRT-LM CLI Usage Guide](https://developers.google.com/edge/litert-lm/cli/usage).
+
+## Running the integration test
+
+`LiteRtLmStreamingIntegrationTest` drives a real on-device model through
+`LiteRtLmModel` to exercise the streaming, non-streaming, and tool-calling
+paths. It is skipped unless you point it at a `.litertlm` model with the
+`LITERT_LM_MODEL_PATH` environment variable, so it never runs in CI.
+
+After importing a model (above), run:
+
+```bash
+LITERT_LM_MODEL_PATH=~/.litert-lm/models/gemma4-e2b/model.litertlm \
+  ./gradlew :google-adk-kotlin-litertlm:jvmTest \
+  --tests "com.google.adk.kt.litertlm.it.LiteRtLmStreamingIntegrationTest"
+```
+
+The streaming and non-streaming cases run with any capable instruction-tuned
+model. The tool-calling case additionally needs a tool-capable model such as
+`gemma-4-E2B-it`; with a model that never calls a tool, that case is skipped
+rather than failed.
