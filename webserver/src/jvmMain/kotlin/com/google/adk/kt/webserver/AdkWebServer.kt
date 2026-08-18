@@ -47,7 +47,6 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.uri
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import org.slf4j.Logger
@@ -157,7 +156,7 @@ fun Application.adkModule(
   }
 
   routing {
-    get("/api/health") { call.respondText("OK") }
+    get("/health") { call.respond(mapOf("status" to "ok")) }
     get("/version") {
       call.respond(
         VersionInfo(

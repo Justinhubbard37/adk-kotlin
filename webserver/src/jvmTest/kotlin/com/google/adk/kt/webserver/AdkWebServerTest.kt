@@ -173,9 +173,9 @@ class AdkWebServerTest {
   fun healthCheck_returnsOk() = testApplication {
     application { adkModule(sessionService, artifactService, agentLoader, ApiServerSpanExporter()) }
 
-    val response = client.get("/api/health")
+    val response = client.get("/health")
     assertThat(response.status).isEqualTo(HttpStatusCode.OK)
-    assertThat(response.bodyAsText()).isEqualTo("OK")
+    assertThat(response.bodyAsText()).isEqualTo("{\"status\":\"ok\"}")
   }
 
   @Test
