@@ -41,6 +41,9 @@ import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+ * Tests for the ML Kit request/response conversions: text, images, config, and response mapping.
+ */
 @RunWith(AndroidJUnit4::class)
 class GenaiPromptConversionsTest {
   private lateinit var imageUri: Uri
@@ -97,117 +100,6 @@ class GenaiPromptConversionsTest {
     assertThat(texts).containsExactly("Hello")
     // Single-turn requests get no default multi-turn system instruction.
     assertThat(generateContentRequest.systemInstruction).isNull()
-  }
-
-  @Test
-  fun toGenerateContentRequest_multiTurn_addsRoleMarkers() {
-    val request =
-      LlmRequest(
-        contents =
-          listOf(
-            Content(role = "user", parts = listOf(Part(text = "Hello"))),
-            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
-            Content(role = "user", parts = listOf(Part(text = "How are you?"))),
-          )
-      )
-
-    val generateContentRequest = request.toGenerateContentRequest()
-
-    val texts =
-      generateContentRequest.contents
-        .flatMap { it.parts }
-        .filterIsInstance<TextPart>()
-        .map { it.textString }
-    assertThat(texts)
-      .containsExactly("[user]: Hello", "[model]: Hi there", "[user]: How are you?")
-      .inOrder()
-  }
-
-  @Test
-  fun toGenerateContentRequest_multiTurn_groupsTextPartsUnderSingleRoleMarker() {
-    val request =
-      LlmRequest(
-        contents =
-          listOf(
-            Content(role = "user", parts = listOf(Part(text = "Hi"))),
-            Content(
-              role = "model",
-              parts = listOf(Part(text = "First line"), Part(text = "Second line")),
-            ),
-          )
-      )
-
-    val texts =
-      request
-        .toGenerateContentRequest()
-        .contents
-        .flatMap { it.parts }
-        .filterIsInstance<TextPart>()
-        .map { it.textString }
-    // A turn's text parts are joined with "\n\n" and carry a single leading role marker.
-    assertThat(texts).containsExactly("[user]: Hi", "[model]: First line\n\nSecond line").inOrder()
-  }
-
-  @Test
-  fun toGenerateContentRequest_multiTurn_nullRole_defaultsToUserMarker() {
-    val request =
-      LlmRequest(
-        contents =
-          listOf(
-            Content(parts = listOf(Part(text = "First"))),
-            Content(role = "model", parts = listOf(Part(text = "Second"))),
-          )
-      )
-
-    val texts =
-      request
-        .toGenerateContentRequest()
-        .contents
-        .flatMap { it.parts }
-        .filterIsInstance<TextPart>()
-        .map { it.textString }
-    assertThat(texts).containsExactly("[user]: First", "[model]: Second").inOrder()
-  }
-
-  @Test
-  fun toGenerateContentRequest_multiTurn_addsDefaultSystemInstruction() {
-    val request =
-      LlmRequest(
-        contents =
-          listOf(
-            Content(role = "user", parts = listOf(Part(text = "Hello"))),
-            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
-          )
-      )
-
-    val systemInstruction = request.toGenerateContentRequest().systemInstruction?.textString
-
-    // The two leaks the instruction must rule out: a role marker, and an echoed earlier turn.
-    assertThat(systemInstruction).contains("Never write a marker yourself")
-    assertThat(systemInstruction).contains("Write only your own reply")
-  }
-
-  @Test
-  fun toGenerateContentRequest_multiTurn_combinesWithUserSystemInstruction() {
-    val request =
-      LlmRequest(
-        contents =
-          listOf(
-            Content(role = "user", parts = listOf(Part(text = "Hello"))),
-            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
-          ),
-        config =
-          GenerateContentConfig(
-            systemInstruction = Content(parts = listOf(Part(text = "Be concise.")))
-          ),
-      )
-
-    val generateContentRequest = request.toGenerateContentRequest()
-
-    val systemInstruction = generateContentRequest.systemInstruction?.textString
-    assertThat(systemInstruction).contains("Never write a marker yourself")
-    // The caller's instruction comes last, so it is not overridden by the default guidance.
-    assertThat(systemInstruction).endsWith("\n\nBe concise.")
   }
 
   @Ignore("throws java.lang.VerifyError")
@@ -514,5 +406,114 @@ class GenaiPromptConversionsTest {
 
     assertThat(response.content).isNull()
     assertThat(response.errorMessage).isNull()
+  }
+
+  @Test
+  fun toGenerateContentRequest_multiTurn_addsRoleMarkers() {
+    val request =
+      LlmRequest(
+        contents =
+          listOf(
+            Content(role = "user", parts = listOf(Part(text = "Hello"))),
+            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
+            Content(role = "user", parts = listOf(Part(text = "How are you?"))),
+          )
+      )
+
+    val generateContentRequest = request.toGenerateContentRequest()
+
+    val texts =
+      generateContentRequest.contents
+        .flatMap { it.parts }
+        .filterIsInstance<TextPart>()
+        .map { it.textString }
+    assertThat(texts)
+      .containsExactly("[user]: Hello", "[model]: Hi there", "[user]: How are you?")
+      .inOrder()
+  }
+
+  @Test
+  fun toGenerateContentRequest_multiTurn_groupsTextPartsUnderSingleRoleMarker() {
+    val request =
+      LlmRequest(
+        contents =
+          listOf(
+            Content(role = "user", parts = listOf(Part(text = "Hi"))),
+            Content(
+              role = "model",
+              parts = listOf(Part(text = "First line"), Part(text = "Second line")),
+            ),
+          )
+      )
+
+    val texts =
+      request
+        .toGenerateContentRequest()
+        .contents
+        .flatMap { it.parts }
+        .filterIsInstance<TextPart>()
+        .map { it.textString }
+    // A turn's text parts are joined with "\n\n" and carry a single leading role marker.
+    assertThat(texts).containsExactly("[user]: Hi", "[model]: First line\n\nSecond line").inOrder()
+  }
+
+  @Test
+  fun toGenerateContentRequest_multiTurn_nullRole_defaultsToUserMarker() {
+    val request =
+      LlmRequest(
+        contents =
+          listOf(
+            Content(parts = listOf(Part(text = "First"))),
+            Content(role = "model", parts = listOf(Part(text = "Second"))),
+          )
+      )
+
+    val texts =
+      request
+        .toGenerateContentRequest()
+        .contents
+        .flatMap { it.parts }
+        .filterIsInstance<TextPart>()
+        .map { it.textString }
+    assertThat(texts).containsExactly("[user]: First", "[model]: Second").inOrder()
+  }
+
+  @Test
+  fun toGenerateContentRequest_multiTurn_addsDefaultSystemInstruction() {
+    val request =
+      LlmRequest(
+        contents =
+          listOf(
+            Content(role = "user", parts = listOf(Part(text = "Hello"))),
+            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
+          )
+      )
+
+    val systemInstruction = request.toGenerateContentRequest().systemInstruction?.textString
+
+    assertThat(systemInstruction).contains("Never write a marker yourself")
+    assertThat(systemInstruction).contains("Write only your own reply")
+  }
+
+  @Test
+  fun toGenerateContentRequest_multiTurn_combinesWithUserSystemInstruction() {
+    val request =
+      LlmRequest(
+        contents =
+          listOf(
+            Content(role = "user", parts = listOf(Part(text = "Hello"))),
+            Content(role = "model", parts = listOf(Part(text = "Hi there"))),
+          ),
+        config =
+          GenerateContentConfig(
+            systemInstruction = Content(parts = listOf(Part(text = "Be concise.")))
+          ),
+      )
+
+    val systemInstruction = request.toGenerateContentRequest().systemInstruction?.textString
+
+    assertThat(systemInstruction).contains("Never write a marker yourself")
+    // The caller's instruction comes last, so it is not overridden by the default guidance.
+    assertThat(systemInstruction).endsWith("\n\nBe concise.")
   }
 }

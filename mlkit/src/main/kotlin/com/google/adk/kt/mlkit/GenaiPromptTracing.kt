@@ -52,7 +52,8 @@ internal object GenaiPromptTracing {
 
   internal fun format(generateContentResponse: GenerateContentResponse): String {
     val candidate = generateContentResponse.candidates.firstOrNull()
-    return "generateContentResponse text: ${redactedText(candidate?.text?.length ?: 0)}, finishReason: ${candidate?.finishReason}"
+    return "generateContentResponse text: ${redactedText(candidate?.text?.length ?: 0)}, " +
+      "finishReason: ${candidate?.finishReason}"
   }
 
   internal fun format(llmResponse: LlmResponse): String = llmResponse.redacted().toString()

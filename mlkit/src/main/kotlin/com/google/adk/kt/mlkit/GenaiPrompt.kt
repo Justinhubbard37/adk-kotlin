@@ -25,6 +25,8 @@ import com.google.adk.kt.models.LlmRequest
 import com.google.adk.kt.models.LlmResponse
 import com.google.adk.kt.models.Model
 import com.google.adk.kt.models.StreamingResponseAggregator
+import com.google.mlkit.genai.prompt.GenerateContentRequest
+import com.google.mlkit.genai.prompt.GenerateContentResponse
 import com.google.mlkit.genai.prompt.GenerativeModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -55,30 +57,44 @@ private constructor(val generativeModel: GenerativeModel, override val name: Str
      * @param generativeModel The [GenerativeModel] to use for generation.
      * @param name The name of the model.
      */
-    fun create(generativeModel: GenerativeModel, name: String = "GenaiPrompt") =
+    fun create(generativeModel: GenerativeModel, name: String = "GenaiPrompt"): GenaiPrompt =
       GenaiPrompt(generativeModel, name)
   }
 
+  private fun convertRequest(request: LlmRequest): GenerateContentRequest {
+    return request.toGenerateContentRequest()
+  }
+
+  private fun convertResponse(response: GenerateContentResponse): LlmResponse {
+    return response.toLlmResponse()
+  }
+
+  private fun traceRequest(request: GenerateContentRequest): String {
+    return format(request)
+  }
+
+  private fun traceResponse(response: GenerateContentResponse): String {
+    return format(response)
+  }
+
   private suspend fun generateContentNonStreaming(request: LlmRequest): LlmResponse {
-    return generativeModel
-      .generateContent(request.toGenerateContentRequest().also { logger.trace { format(it) } })
-      .also { logger.trace { format(it) } }
-      .toLlmResponse()
-      .also { logger.trace { format(it) } }
+    val genRequest = convertRequest(request)
+    logger.trace { traceRequest(genRequest) }
+    val genResponse = generativeModel.generateContent(genRequest)
+    logger.trace { traceResponse(genResponse) }
+    return convertResponse(genResponse).also { logger.trace { format(it) } }
   }
 
   /** Emits every chunk as a partial [LlmResponse], then the aggregated final one. */
   @OptIn(FrameworkInternalApi::class)
   private fun generateContentStreaming(request: LlmRequest): Flow<LlmResponse> = flow {
     val aggregator = StreamingResponseAggregator()
-    generativeModel
-      .generateContentStream(
-        request.toGenerateContentRequest().also { logger.trace { format(it) } }
-      )
-      .collect { chunk ->
-        logger.trace { "partial response: ${format(chunk)}" }
-        emit(aggregator.processResponse(chunk.toLlmResponse()))
-      }
+    val genRequest = convertRequest(request)
+    logger.trace { traceRequest(genRequest) }
+    generativeModel.generateContentStream(genRequest).collect { chunk ->
+      logger.trace { "partial response: ${traceResponse(chunk)}" }
+      emit(aggregator.processResponse(convertResponse(chunk)))
+    }
 
     aggregator.aggregate()?.let { response ->
       logger.trace { "final response: ${format(response)}" }
@@ -86,7 +102,7 @@ private constructor(val generativeModel: GenerativeModel, override val name: Str
     }
   }
 
-  override fun generateContent(request: LlmRequest, stream: Boolean): Flow<LlmResponse> {
+  final override fun generateContent(request: LlmRequest, stream: Boolean): Flow<LlmResponse> {
     logger.trace { "request: ${format(request)}, stream: $stream" }
     return if (stream) {
       generateContentStreaming(request)

@@ -31,15 +31,35 @@ import com.google.mlkit.genai.prompt.ImagePart
 import com.google.mlkit.genai.prompt.SystemInstruction
 import com.google.mlkit.genai.prompt.TextPart
 
+/** Separator between grouped text segments and system-instruction parts. */
+internal const val instructionSeparator = "\n\n"
+
+private fun String?.isImageMimeType(): Boolean = this?.startsWith("image/") == true
+
+/** Converts an ADK [Part] to an ML Kit [ImagePart], or `null` if it is not an image. */
+internal fun Part.toImagePartOrNull(): ImagePart? {
+  val inlineData = inlineData
+  val fileData = fileData
+  return when {
+    inlineData != null && inlineData.mimeType.isImageMimeType() ->
+      inlineData.data?.let { ImagePart(it) }
+    fileData != null && fileData.mimeType.isImageMimeType() ->
+      fileData.fileUri?.let { ImagePart(it.toUri()) }
+    else -> null
+  }
+}
+
+/** Returns the request's own system instruction text, or `null` if none is set. */
+internal fun LlmRequest.systemInstructionText(): String? =
+  config.systemInstruction
+    ?.parts
+    ?.mapNotNull { it.text }
+    ?.joinToString(instructionSeparator)
+    ?.takeIf { it.isNotEmpty() }
+
 /** Utility functions for converting between ADK and ML Kit request and response formats. */
 internal object GenaiPromptConversions {
   private val logger = LoggerFactory.getLogger(GenaiPromptConversions::class)
-
-  private fun String?.isImageMimeType(): Boolean {
-    return this?.startsWith("image/") == true
-  }
-
-  private val instructionSeparator = "\n\n"
 
   /** Guidance prepended to the system instruction for multi-turn requests. */
   private val multiTurnSystemInstruction =
@@ -53,10 +73,8 @@ internal object GenaiPromptConversions {
   /**
    * Converts an [LlmRequest] to a [GenerateContentRequest].
    *
-   * Each ADK [Content] (turn) maps to an ML Kit [MlKitContent], keeping all images and turn order.
-   * Since ML Kit has no per-turn role, multi-turn requests prefix each turn's text with a `[role]:`
-   * marker and prepend a default [multiTurnSystemInstruction] explaining the markers. The system
-   * instruction is passed through the [SystemInstruction] field.
+   * The public ML Kit Prompt API has no per-turn role, so multi-turn requests prefix each turn's
+   * text with a `[role]:` marker and prepend [multiTurnSystemInstruction] explaining the markers.
    */
   internal fun LlmRequest.toGenerateContentRequest(): GenerateContentRequest {
     val isMultiTurn = contents.size > 1
@@ -93,6 +111,7 @@ internal object GenaiPromptConversions {
    *
    * When [includeRoleMarkers] is true, a `[role]:` marker is attached to the start of the turn (as
    * a prefix on the first text, or as a leading text part if the turn starts with an image).
+   * Function-call and function-response parts are dropped: the public ML Kit API cannot carry them.
    */
   private fun Content.toMlKitContent(includeRoleMarkers: Boolean): MlKitContent? {
     val builder = MlKitContent.builder()
@@ -139,34 +158,10 @@ internal object GenaiPromptConversions {
     return if (addedPart) builder.build() else null
   }
 
-  /** Converts an ADK [Part] to an ML Kit [ImagePart], or `null` if it is not an image. */
-  private fun Part.toImagePartOrNull(): ImagePart? {
-    val inlineData = inlineData
-    val fileData = fileData
-    return when {
-      inlineData != null && inlineData.mimeType.isImageMimeType() ->
-        inlineData.data?.let { ImagePart(it) }
-      fileData != null && fileData.mimeType.isImageMimeType() ->
-        fileData.fileUri?.let { ImagePart(it.toUri()) }
-      else -> null
-    }
-  }
-
-  /** Returns the request's own system instruction text, or `null` if none is set. */
-  private fun LlmRequest.systemInstructionText(): String? =
-    config.systemInstruction
-      ?.parts
-      ?.mapNotNull { it.text }
-      ?.joinToString(instructionSeparator)
-      ?.takeIf { it.isNotEmpty() }
-
   /**
    * Converts a [GenerateContentResponse] to an [LlmResponse].
    *
    * Only the first candidate is used.
-   *
-   * @return The [LlmResponse] containing the text from the first candidate and the finish reason if
-   *   present.
    */
   internal fun GenerateContentResponse.toLlmResponse(): LlmResponse {
     if (candidates.size > 1) {
