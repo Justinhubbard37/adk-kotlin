@@ -99,7 +99,7 @@ class HomeActivity : ComponentActivity() {
         ),
         ExampleEntry(
           "Firebase AI",
-          "Cloud Gemini (Firebase AI Logic): plain chat plus tool calling",
+          "Cloud Gemini (Firebase AI Logic): plain chat plus tool calling, with a streaming toggle",
           FirebaseChatActivity::class.java,
         ),
       )

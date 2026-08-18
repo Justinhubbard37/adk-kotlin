@@ -21,8 +21,8 @@ Each menu entry opens one self-contained example `Activity`:
     [The LiteRT-LM model](#the-litert-lm-model-for-the-litert-lm-chat-example)
     below.
 -   **Firebase AI** — a chat backed by the cloud Firebase AI (Gemini) model from
-    the [`:google-adk-kotlin-firebase`](../../firebase) module, demonstrating
-    both plain chat and tool calling (via
+    the [`:google-adk-kotlin-firebase`](../../firebase) module, with a streaming
+    toggle and tool calling (via
     [`WeatherTools.kt`](src/main/kotlin/com/google/adk/kt/examples/android/firebase/WeatherTools.kt)).
 
 **Room session**, **ML Kit chat** and **LiteRT-LM chat** infer fully on-device

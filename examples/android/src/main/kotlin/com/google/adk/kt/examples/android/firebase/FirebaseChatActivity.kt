@@ -23,6 +23,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.google.adk.kt.agents.RunConfig
+import com.google.adk.kt.agents.StreamingMode
 import com.google.adk.kt.examples.android.common.ScopedExampleActivity
 import com.google.adk.kt.examples.android.common.foldTextParts
 import com.google.adk.kt.examples.android.common.ui.AdkExamplesTheme
@@ -38,8 +40,9 @@ import kotlinx.coroutines.launch
 
 /**
  * Minimal Android example: an [com.google.adk.kt.agents.LlmAgent] backed by the Firebase AI
- * (Gemini) model from the `:google-adk-kotlin-firebase` module. The chat UI exercises both plain
- * conversation and tool calling (via [WeatherTools]).
+ * (Gemini) model from the `:google-adk-kotlin-firebase` module. The chat UI exercises plain
+ * conversation, tool calling (via [WeatherTools]), and streaming responses (the "Stream" toggle
+ * selects the [RunConfig.streamingMode]).
  *
  * The Firebase-setup plumbing lives in [FirebaseAppResolver]; the agent wiring lives in
  * [FirebaseChatAgent]. What remains here is the typical ADK usage: build an [InMemoryRunner] around
@@ -55,6 +58,7 @@ class FirebaseChatActivity : ScopedExampleActivity() {
 
   private val messages = mutableStateListOf<ChatMessage>()
   private var inputEnabled by mutableStateOf(false)
+  private var streaming by mutableStateOf(true)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -67,6 +71,8 @@ class FirebaseChatActivity : ScopedExampleActivity() {
           inputEnabled = inputEnabled,
           onSend = ::sendToAgent,
           onBack = ::finish,
+          streaming = streaming,
+          onStreamingChange = { streaming = it },
         )
       }
     }
@@ -106,20 +112,43 @@ class FirebaseChatActivity : ScopedExampleActivity() {
 
   private fun sendToAgent(text: String) {
     val activeRunner = runner ?: return
+    val streamMode = if (streaming) StreamingMode.SSE else StreamingMode.NONE
     messages.add(ChatMessage(ChatAuthor.USER, text))
+    // Every turn runs against the same session, so disable input until this one finishes: a second
+    // turn started mid-flight would interleave the two turns' events and reply bubbles. Re-enabled
+    // in the `finally` below.
+    inputEnabled = false
+
     scope.launch {
+      val reply = StringBuilder()
+      var bubble = -1
       try {
         activeRunner
           .runAsync(
             userId = USER_ID,
             sessionId = SESSION_ID,
             newMessage = Content(role = Role.USER, parts = listOf(Part(text = text))),
+            runConfig = RunConfig(streamingMode = streamMode),
           )
           .collect { event ->
-            val reply = event.foldTextParts()
-            if (event.author == FirebaseChatAgent.NAME && reply.isNotBlank()) {
-              runOnUiThread {
-                messages.add(ChatMessage(ChatAuthor.AGENT, reply, FirebaseChatAgent.NAME))
+            if (event.author != FirebaseChatAgent.NAME) return@collect
+            val chunk = event.foldTextParts()
+            val error = event.errorMessage
+            if (chunk.isBlank() && error == null) return@collect
+            val partial = event.partial
+            // Partial deltas grow the current bubble; a non-partial event ends the segment and
+            // resets so the next one gets a fresh bubble. Errors also arrive non-partial with no
+            // text, so surface them here.
+            runOnUiThread {
+              if (partial) {
+                bubble = upsertAgentBubble(bubble, reply.append(chunk).toString())
+              } else {
+                if (chunk.isNotBlank()) {
+                  val unused = upsertAgentBubble(bubble, chunk.trim())
+                }
+                error?.let { messages.add(ChatMessage(ChatAuthor.SYSTEM, "Model error: $it")) }
+                reply.setLength(0)
+                bubble = -1
               }
             }
           }
@@ -127,8 +156,23 @@ class FirebaseChatActivity : ScopedExampleActivity() {
         runOnUiThread {
           messages.add(ChatMessage(ChatAuthor.SYSTEM, "Error: ${e.message ?: e::class.simpleName}"))
         }
+      } finally {
+        runOnUiThread { inputEnabled = true }
       }
     }
+  }
+
+  /**
+   * Adds the reply bubble on first call, then updates it in place. Returns its index; UI thread
+   * only.
+   */
+  private fun upsertAgentBubble(index: Int, text: String): Int {
+    if (index < 0) {
+      messages.add(ChatMessage(ChatAuthor.AGENT, text, FirebaseChatAgent.NAME))
+      return messages.lastIndex
+    }
+    messages[index] = messages[index].copy(text = text)
+    return index
   }
 
   private companion object {
