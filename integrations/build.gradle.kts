@@ -23,25 +23,25 @@ kotlin {
   jvm()
 
   sourceSets {
-    val commonMain by getting {
+    getByName("commonMain") {
       dependencies {
         api(project(":google-adk-kotlin-core"))
         implementation(libs.kotlinx.coroutines.core)
       }
     }
-    val commonTest by getting {
+    getByName("commonTest") {
       dependencies {
         implementation(project(":google-adk-kotlin-testing"))
         implementation(kotlin("test"))
       }
     }
-    val jvmMain by getting {
+    getByName("jvmMain") {
       dependencies {
         api(libs.google.cloud.bigquery)
         api(libs.google.auth.oauth2.http)
       }
     }
-    val jvmTest by getting {
+    getByName("jvmTest") {
       dependencies {
         implementation(libs.google.truth)
         implementation(libs.junit)
