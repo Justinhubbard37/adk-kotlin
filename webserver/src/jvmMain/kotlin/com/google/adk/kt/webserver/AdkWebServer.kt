@@ -56,6 +56,10 @@ import org.slf4j.event.Level
 /**
  * Embedded Ktor server exposing the ADK dev/web API.
  *
+ * [start] and [stop] are safe to call from different threads; a [stop] arriving while [start] is
+ * still binding aborts it. A failed [start] leaves the engine recorded, so call [stop] before
+ * retrying.
+ *
  * @property captureMessageContent When true, the server records prompt/response content into
  *   telemetry spans so the Dev UI trace view can display it. This may capture PII and increase span
  *   size, so it defaults to false; enable it only for local development.
@@ -76,29 +80,35 @@ class AdkWebServer(
     fun adkVersion(): String = com.google.adk.kt.VERSION
   }
 
+  private val lifecycleLock = Any()
   private var server: ApplicationEngine? = null
 
   fun start(wait: Boolean = false) {
-    if (server != null) return
-
-    server =
-      embeddedServer(Netty, port = port) {
-          adkModule(
-            sessionService,
-            artifactService,
-            agentLoader,
-            apiServerSpanExporter,
-            captureMessageContent,
-            plugins,
-          )
-        }
-        .start(wait = wait)
-    logger.info("Ktor server started on port $port")
+    // Released before the blocking call below, so stop() can still take it.
+    val engine =
+      synchronized(lifecycleLock) {
+        if (server != null) return
+        embeddedServer(Netty, port = port) {
+            adkModule(
+              sessionService,
+              artifactService,
+              agentLoader,
+              apiServerSpanExporter,
+              captureMessageContent,
+              plugins,
+            )
+          }
+          .also { server = it }
+      }
+    logger.info("Ktor server starting on port $port")
+    engine.start(wait = wait)
   }
 
   fun stop() {
-    server?.stop(1000, 5000)
-    server = null
+    synchronized(lifecycleLock) {
+      server?.stop(1000, 5000)
+      server = null
+    }
     logger.info("Ktor server stopped")
   }
 
