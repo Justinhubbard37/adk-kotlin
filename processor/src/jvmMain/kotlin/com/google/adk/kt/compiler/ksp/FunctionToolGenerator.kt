@@ -245,14 +245,14 @@ class FunctionToolGenerator(
             return null
           }
         }
-        typeNameString == LIST_QUALIFIED_NAME -> {
+        typeNameString in LIST_QUALIFIED_NAMES -> {
           if (
             !buildListParameter(paramName, paramType, isRequired, executeFun, param, mutableSetOf())
           ) {
             return null
           }
         }
-        typeNameString == MAP_QUALIFIED_NAME -> {
+        typeNameString in MAP_QUALIFIED_NAMES -> {
           if (!buildMapParameter(paramName, paramType, isRequired, executeFun, mutableSetOf())) {
             return null
           }
@@ -436,7 +436,7 @@ class FunctionToolGenerator(
             return false
           }
         }
-        cpTypeNameString == LIST_QUALIFIED_NAME -> {
+        cpTypeNameString in LIST_QUALIFIED_NAMES -> {
           if (
             !buildListParameter(
               "${paramName}_${cpName}",
@@ -453,7 +453,7 @@ class FunctionToolGenerator(
             return false
           }
         }
-        cpTypeNameString == MAP_QUALIFIED_NAME -> {
+        cpTypeNameString in MAP_QUALIFIED_NAMES -> {
           if (
             !buildMapParameter(
               "${paramName}_${cpName}",
@@ -658,7 +658,7 @@ class FunctionToolGenerator(
         typeName in PRIMITIVE_OR_STRING_QUALIFIED_NAMES -> valueExpr
         typeDeclaration?.classKind == ClassKind.ENUM_CLASS ->
           if (type.isMarkedNullable) "${valueExpr}?.name" else "${valueExpr}.name"
-        typeName == LIST_QUALIFIED_NAME -> {
+        typeName in LIST_QUALIFIED_NAMES -> {
           val listTypeArg = type.arguments.firstOrNull()?.type?.resolve()
           if (listTypeArg != null) {
             // `Any` element: pass the list through; the wire layer handles arbitrary `Any?`
@@ -681,7 +681,7 @@ class FunctionToolGenerator(
             valueExpr
           }
         }
-        typeName == MAP_QUALIFIED_NAME -> {
+        typeName in MAP_QUALIFIED_NAMES -> {
           val mapValueTypeArg = type.arguments.getOrNull(1)?.type?.resolve()
           if (mapValueTypeArg != null) {
             // `Any` value: pass the map through; the wire layer handles arbitrary `Any?` values.
@@ -859,7 +859,7 @@ class FunctionToolGenerator(
     val qualifiedName = type.declaration.qualifiedName?.asString()
     val typeDeclaration = type.declaration as? KSClassDeclaration
     return when {
-      qualifiedName == LIST_QUALIFIED_NAME -> {
+      qualifiedName in LIST_QUALIFIED_NAMES -> {
         val element = type.arguments.firstOrNull()?.type?.resolve() ?: return false
         element.declaration.qualifiedName?.asString() != ANY_QUALIFIED_NAME &&
           describesFaithfully(element, visited)
@@ -946,8 +946,8 @@ class FunctionToolGenerator(
         typeString == INT_QUALIFIED_NAME -> "INTEGER"
         typeString == DOUBLE_QUALIFIED_NAME || typeString == FLOAT_QUALIFIED_NAME -> "NUMBER"
         typeString == BOOLEAN_QUALIFIED_NAME -> "BOOLEAN"
-        typeString == LIST_QUALIFIED_NAME -> "ARRAY"
-        typeString == MAP_QUALIFIED_NAME -> "OBJECT"
+        typeString in LIST_QUALIFIED_NAMES -> "ARRAY"
+        typeString in MAP_QUALIFIED_NAMES -> "OBJECT"
         typeDeclaration?.classKind == ClassKind.ENUM_CLASS -> "STRING"
         typeDeclaration?.isDataClass() == true -> "OBJECT"
         else -> "STRING"
@@ -1080,6 +1080,12 @@ class FunctionToolGenerator(
     private val UNIT_QUALIFIED_NAME = Unit::class.qualifiedName
     private val LIST_QUALIFIED_NAME = List::class.qualifiedName
     private val MAP_QUALIFIED_NAME = Map::class.qualifiedName
+    // Hardcoded because Mutable*::class.qualifiedName resolves to the read-only name at runtime.
+    private const val MUTABLE_LIST_QUALIFIED_NAME = "kotlin.collections.MutableList"
+    private const val MUTABLE_MAP_QUALIFIED_NAME = "kotlin.collections.MutableMap"
+    // Java collections reach KSP as the mutable variants, so accept both forms.
+    private val LIST_QUALIFIED_NAMES = setOf(LIST_QUALIFIED_NAME, MUTABLE_LIST_QUALIFIED_NAME)
+    private val MAP_QUALIFIED_NAMES = setOf(MAP_QUALIFIED_NAME, MUTABLE_MAP_QUALIFIED_NAME)
     private val ANY_QUALIFIED_NAME = Any::class.qualifiedName
     private val TOOL_CONTEXT_QUALIFIED_NAME = ToolContext::class.qualifiedName
     private val PRIMITIVE_OR_STRING_QUALIFIED_NAMES =

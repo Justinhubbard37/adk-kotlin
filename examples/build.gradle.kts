@@ -27,7 +27,7 @@ val jdkVersion = providers.gradleProperty("jdkVersion").getOrElse("17").toInt()
 
 kotlin { jvmToolchain(maxOf(21, jdkVersion)) }
 
-sourceSets { main { java.srcDirs("src/main/kotlin") } }
+sourceSets { main { java.srcDirs("src/main/kotlin", "src/main/java") } }
 
 dependencies {
   implementation(project(":google-adk-kotlin-a2a"))
