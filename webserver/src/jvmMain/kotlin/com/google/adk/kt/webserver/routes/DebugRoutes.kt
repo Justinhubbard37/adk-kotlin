@@ -16,11 +16,7 @@
 
 package com.google.adk.kt.webserver.routes
 
-import com.google.adk.kt.sessions.SessionService
 import com.google.adk.kt.webserver.dev.routes.debugRoutes as devDebugRoutes
-import com.google.adk.kt.webserver.dev.routes.evalRoutes as devEvalRoutes
-import com.google.adk.kt.webserver.dev.routes.graphRoutes as devGraphRoutes
-import com.google.adk.kt.webserver.loaders.AgentLoader
 import com.google.adk.kt.webserver.telemetry.ApiServerSpanExporter
 import io.ktor.server.routing.Route
 
@@ -29,22 +25,4 @@ import io.ktor.server.routing.Route
   "Moved to the development-only package.",
   ReplaceWith("debugRoutes(exporter)", "com.google.adk.kt.webserver.dev.routes.debugRoutes"),
 )
-fun Route.debugRoutes(exporter: ApiServerSpanExporter) = devDebugRoutes(exporter)
-
-/** Kept so callers of the previous package keep compiling; use the `dev` package instead. */
-@Deprecated(
-  "Moved to the development-only package.",
-  ReplaceWith("evalRoutes()", "com.google.adk.kt.webserver.dev.routes.evalRoutes"),
-)
-fun Route.evalRoutes() = devEvalRoutes()
-
-/** Kept so callers of the previous package keep compiling; use the `dev` package instead. */
-@Deprecated(
-  "Moved to the development-only package.",
-  ReplaceWith(
-    "graphRoutes(agentLoader, sessionService)",
-    "com.google.adk.kt.webserver.dev.routes.graphRoutes",
-  ),
-)
-fun Route.graphRoutes(agentLoader: AgentLoader, sessionService: SessionService) =
-  devGraphRoutes(agentLoader, sessionService)
+fun Route.debugRoutes(exporter: ApiServerSpanExporter): Unit = devDebugRoutes(exporter)
