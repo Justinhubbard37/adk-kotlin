@@ -28,7 +28,12 @@ import com.google.adk.kt.types.Part
 import com.google.common.truth.Truth.assertThat
 import java.io.IOException
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -54,27 +59,33 @@ import org.mockito.kotlin.verifyBlocking
 @RunWith(JUnit4::class)
 class VertexAiSessionServiceTest {
 
-  private fun service(client: VertexAiSessionsClient) =
+  private fun service(client: VertexAiSessionsClient, sessionTtl: Duration? = null) =
     VertexAiSessionService(
       client,
       project = PROJECT,
       location = LOCATION,
       reasoningEngineId = ENGINE_ID,
+      sessionTtl = sessionTtl,
     )
+
+  /** A client that accepts any create call, for asserting which expiration was forwarded. */
+  private fun expiringSessionClient() =
+    mock<VertexAiSessionsClient> {
+      onBlocking { createSession(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()) } doReturn
+        Result.success(SessionDto(name = "reasoningEngines/123/sessions/s"))
+    }
 
   @Test
   fun addressesConfiguredEngineRegardlessOfAppName() = runTest {
-    val client =
-      mock<VertexAiSessionsClient> {
-        onBlocking { createSession(any(), any(), anyOrNull()) } doReturn
-          Result.success(SessionDto(name = "reasoningEngines/123/sessions/s"))
-      }
+    val client = expiringSessionClient()
 
     // The app name is only a label; the service always addresses the engine set at construction.
     val unused =
       service(client).createSession(SessionKey("any-label", "user", id = null), state = null)
 
-    verifyBlocking(client) { createSession(eq(ENGINE), eq("user"), anyOrNull()) }
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), anyOrNull(), anyOrNull())
+    }
   }
 
   @Test
@@ -137,7 +148,9 @@ class VertexAiSessionServiceTest {
   fun createSession_mapsClientResponse() = runTest {
     val client =
       mock<VertexAiSessionsClient> {
-        onBlocking { createSession(eq(ENGINE), eq("user"), anyOrNull()) } doReturn
+        onBlocking {
+          createSession(eq(ENGINE), eq("user"), anyOrNull(), anyOrNull(), anyOrNull())
+        } doReturn
           Result.success(
             SessionDto(
               name = "reasoningEngines/123/sessions/session-1",
@@ -160,12 +173,148 @@ class VertexAiSessionServiceTest {
   fun createSession_clientFails_propagates() = runTest {
     val client =
       mock<VertexAiSessionsClient> {
-        onBlocking { createSession(any(), any(), anyOrNull()) } doReturn
+        onBlocking { createSession(any(), any(), anyOrNull(), anyOrNull(), anyOrNull()) } doReturn
           Result.failure(IOException("boom"))
       }
 
     assertFailsWith<IOException> {
       service(client).createSession(SessionKey("123", "user", id = null), state = null)
+    }
+  }
+
+  @Test
+  fun createSession_ttl_forwardsTtlOnly() {
+    val client = expiringSessionClient()
+
+    runBlocking {
+      val unused =
+        service(client).createSession(SessionKey("123", "user", id = null), ttl = 24.hours)
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(24.hours), eq(null))
+    }
+  }
+
+  @Test
+  fun createSession_expireTime_forwardsExpireTimeOnly() {
+    val client = expiringSessionClient()
+    val expiry = Instant.parse("2026-10-01T00:00:00Z")
+
+    runBlocking {
+      val unused =
+        service(client).createSession(SessionKey("123", "user", id = null), expireTime = expiry)
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(null), eq(expiry))
+    }
+  }
+
+  @Test
+  fun createSession_noExpiration_forwardsNeither() {
+    val client = expiringSessionClient()
+
+    // The SessionService overload must not invent an expiration of its own.
+    runBlocking {
+      val unused = service(client).createSession(SessionKey("123", "user", id = null))
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(null), eq(null))
+    }
+  }
+
+  @Test
+  fun createSession_ttlAndExpireTime_throwsWithoutCallingBackend() {
+    val client = expiringSessionClient()
+
+    assertFailsWith<IllegalArgumentException> {
+      runBlocking {
+        service(client)
+          .createSession(
+            SessionKey("123", "user", id = null),
+            ttl = 24.hours,
+            expireTime = Instant.parse("2026-10-01T00:00:00Z"),
+          )
+      }
+    }
+    verifyBlocking(client, never()) {
+      createSession(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
+    }
+  }
+
+  @Test
+  fun createSession_serviceTtl_appliedThroughSessionServiceInterface() {
+    val client = expiringSessionClient()
+    // The runner and the web server create sessions through the interface, where the per-call
+    // overload is unreachable, so the configured default has to reach them.
+    val sessionService: SessionService = service(client, sessionTtl = 24.hours)
+
+    runBlocking {
+      val unused = sessionService.createSession(SessionKey("123", "user", id = null))
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(24.hours), eq(null))
+    }
+  }
+
+  @Test
+  fun createSession_perCallTtl_overridesServiceTtl() {
+    val client = expiringSessionClient()
+
+    runBlocking {
+      val unused =
+        service(client, sessionTtl = 24.hours)
+          .createSession(SessionKey("123", "user", id = null), ttl = 48.hours)
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(48.hours), eq(null))
+    }
+  }
+
+  @Test
+  fun createSession_perCallExpireTime_suppressesServiceTtl() {
+    val client = expiringSessionClient()
+    val expiry = Instant.parse("2026-10-01T00:00:00Z")
+
+    // Both arms are a single wire choice, so the default must not ride along with expireTime.
+    runBlocking {
+      val unused =
+        service(client, sessionTtl = 24.hours)
+          .createSession(SessionKey("123", "user", id = null), expireTime = expiry)
+    }
+
+    verifyBlocking(client) {
+      createSession(eq(ENGINE), eq("user"), anyOrNull(), eq(null), eq(expiry))
+    }
+  }
+
+  @Test
+  fun constructor_sessionTtlBelowOneSecond_throws() {
+    for (bad in listOf(Duration.ZERO, (-1).seconds, 500.milliseconds)) {
+      assertFailsWith<IllegalArgumentException> {
+        service(mock<VertexAiSessionsClient>(), sessionTtl = bad)
+      }
+    }
+  }
+
+  @Test
+  fun createSession_ttlBelowOneSecond_throwsWithoutCallingBackend() {
+    val client = expiringSessionClient()
+
+    // 500ms is positive but truncates to "0s" on the wire, so it must be rejected too.
+    for (bad in listOf(Duration.ZERO, (-1).seconds, 500.milliseconds)) {
+      assertFailsWith<IllegalArgumentException> {
+        runBlocking {
+          service(client).createSession(SessionKey("123", "user", id = null), ttl = bad)
+        }
+      }
+    }
+    verifyBlocking(client, never()) {
+      createSession(any(), any(), anyOrNull(), anyOrNull(), anyOrNull())
     }
   }
 

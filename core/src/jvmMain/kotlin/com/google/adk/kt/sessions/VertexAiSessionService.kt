@@ -24,7 +24,11 @@ import com.google.adk.kt.sessions.dto.toDto
 import com.google.auth.oauth2.GoogleCredentials
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.java.Java
+import java.time.Duration as JavaDuration
 import kotlin.jvm.JvmStatic
+import kotlin.time.Duration
+import kotlin.time.Instant
+import kotlin.time.toKotlinDuration
 
 /**
  * A [SessionService] backed by the managed Vertex AI Session Service.
@@ -51,6 +55,7 @@ internal constructor(
   private val project: String,
   private val location: String,
   private val reasoningEngineId: String,
+  private val sessionTtl: Duration? = null,
 ) : SessionService {
 
   init {
@@ -58,6 +63,9 @@ internal constructor(
     require(reasoningEngineId.all { it.isDigit() }) {
       "reasoningEngineId must be the numeric reasoning engine id (e.g. \"1234567890\"), not a" +
         " resource name; pass project and location as separate arguments. Got: $reasoningEngineId"
+    }
+    require(sessionTtl == null || sessionTtl.inWholeSeconds > 0) {
+      "sessionTtl must be at least one second, but was $sessionTtl."
     }
   }
 
@@ -72,6 +80,9 @@ internal constructor(
    * @param credentials Credentials for the Vertex AI API; defaults to application-default
    *   credentials scoped for Google Cloud Platform.
    * @param httpClient The underlying ktor [HttpClient].
+   * @param sessionTtl Lifetime applied to every session this service creates, including those the
+   *   runner creates through the [SessionService] interface. A per-call `ttl` or `expireTime`
+   *   overrides it; `null` leaves the backend default in place.
    */
   constructor(
     project: String,
@@ -79,15 +90,49 @@ internal constructor(
     reasoningEngineId: String,
     credentials: GoogleCredentials = GoogleApiClient.defaultCredentials(),
     httpClient: HttpClient = HttpClient(Java),
+    sessionTtl: Duration? = null,
   ) : this(
     VertexAiSessionsClient(GoogleApiClient(httpClient, credentials)),
     project,
     location,
     reasoningEngineId,
+    sessionTtl,
   )
 
-  override suspend fun createSession(key: SessionKey, state: Map<String, Any>?): Session {
-    val sessionDto = client.createSession(engine, key.userId, state).getOrThrow()
+  override suspend fun createSession(key: SessionKey, state: Map<String, Any>?): Session =
+    createSession(key, state, ttl = null, expireTime = null)
+
+  /**
+   * Creates a session that expires, addressing the reasoning engine fixed at construction.
+   *
+   * At most one of [ttl] and [expireTime] may be set, because the backend models them as a single
+   * choice; setting both is rejected. The backend also requires the expiry to be at least 24 hours
+   * out. When neither is given, the service-wide `sessionTtl` applies if one was configured.
+   *
+   * @param key The composite identifier of the session; [SessionKey.appName] is only a label.
+   * @param state An optional map representing the initial state of the session.
+   * @param ttl How long the session lives, measured from creation. Sub-second precision is dropped.
+   * @param expireTime The absolute instant at which the session expires.
+   * @return The newly created [Session].
+   */
+  suspend fun createSession(
+    key: SessionKey,
+    state: Map<String, Any>? = null,
+    ttl: Duration? = null,
+    expireTime: Instant? = null,
+  ): Session {
+    require(ttl == null || expireTime == null) {
+      "Cannot specify both ttl and expireTime simultaneously."
+    }
+    // The wire format is whole seconds, so a sub-second ttl would silently travel as "0s".
+    require(ttl == null || ttl.inWholeSeconds > 0) {
+      "ttl must be at least one second, but was $ttl."
+    }
+    // A per-call arm wins; otherwise the service-wide default applies, so a session created
+    // through the SessionService interface still expires.
+    val effectiveTtl = if (ttl == null && expireTime == null) sessionTtl else ttl
+    val sessionDto =
+      client.createSession(engine, key.userId, state, effectiveTtl, expireTime).getOrThrow()
     return sessionDto.toAdk(key.appName, key.userId, key.id)
   }
 
@@ -168,6 +213,7 @@ internal constructor(
     private var reasoningEngineId: String? = null
     private var credentials: GoogleCredentials? = null
     private var httpClient: HttpClient? = null
+    private var sessionTtl: Duration? = null
 
     fun project(project: String): Builder = apply { this.project = project }
 
@@ -183,6 +229,16 @@ internal constructor(
 
     fun httpClient(httpClient: HttpClient): Builder = apply { this.httpClient = httpClient }
 
+    /**
+     * Sets the lifetime applied to every session this service creates.
+     *
+     * Takes a [JavaDuration] because Java cannot name a method whose signature contains [Duration],
+     * a value class.
+     */
+    fun sessionTtl(sessionTtl: JavaDuration): Builder = apply {
+      this.sessionTtl = sessionTtl.toKotlinDuration()
+    }
+
     fun build(): VertexAiSessionService =
       VertexAiSessionService(
         project =
@@ -195,6 +251,7 @@ internal constructor(
           },
         credentials = credentials ?: GoogleApiClient.defaultCredentials(),
         httpClient = httpClient ?: HttpClient(Java),
+        sessionTtl = sessionTtl,
       )
   }
 
