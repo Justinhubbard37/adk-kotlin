@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.adk.kt.webserver.routes
+package com.google.adk.kt.webserver.dev.routes
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call

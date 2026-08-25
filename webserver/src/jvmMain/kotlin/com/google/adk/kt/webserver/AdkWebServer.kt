@@ -23,13 +23,13 @@ import com.google.adk.kt.serialization.adkJson
 import com.google.adk.kt.sessions.SessionService
 import com.google.adk.kt.telemetry.TelemetryConfig
 import com.google.adk.kt.webserver.AdkWebServer.StatusAwareLogger
+import com.google.adk.kt.webserver.dev.routes.debugRoutes
+import com.google.adk.kt.webserver.dev.routes.evalRoutes
+import com.google.adk.kt.webserver.dev.routes.graphRoutes
 import com.google.adk.kt.webserver.loaders.AgentLoader
 import com.google.adk.kt.webserver.models.VersionInfo
 import com.google.adk.kt.webserver.routes.appRoutes
 import com.google.adk.kt.webserver.routes.artifactRoutes
-import com.google.adk.kt.webserver.routes.debugRoutes
-import com.google.adk.kt.webserver.routes.evalRoutes
-import com.google.adk.kt.webserver.routes.graphRoutes
 import com.google.adk.kt.webserver.routes.runRoutes
 import com.google.adk.kt.webserver.routes.sessionRoutes
 import com.google.adk.kt.webserver.routes.staticRoutes

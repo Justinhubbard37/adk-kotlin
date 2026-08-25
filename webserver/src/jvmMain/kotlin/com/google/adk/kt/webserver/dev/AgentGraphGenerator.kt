@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.adk.kt.webserver
+package com.google.adk.kt.webserver.dev
 
 import com.google.adk.kt.agents.BaseAgent
 import com.google.adk.kt.agents.LlmAgent

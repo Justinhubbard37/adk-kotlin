@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.google.adk.kt.webserver.routes
+package com.google.adk.kt.webserver.dev.routes
 
 import com.google.adk.kt.sessions.SessionKey
 import com.google.adk.kt.sessions.SessionService
-import com.google.adk.kt.webserver.AgentGraphGenerator
+import com.google.adk.kt.webserver.dev.AgentGraphGenerator
 import com.google.adk.kt.webserver.loaders.AgentLoader
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
