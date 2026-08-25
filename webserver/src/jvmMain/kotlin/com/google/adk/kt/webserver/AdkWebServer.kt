@@ -30,6 +30,7 @@ import com.google.adk.kt.webserver.loaders.AgentLoader
 import com.google.adk.kt.webserver.models.VersionInfo
 import com.google.adk.kt.webserver.routes.appRoutes
 import com.google.adk.kt.webserver.routes.artifactRoutes
+import com.google.adk.kt.webserver.routes.isWebUiEnabled
 import com.google.adk.kt.webserver.routes.runRoutes
 import com.google.adk.kt.webserver.routes.sessionRoutes
 import com.google.adk.kt.webserver.routes.staticRoutes
@@ -123,6 +124,13 @@ class AdkWebServer(
   }
 }
 
+/**
+ * Installs the ADK routes, including the Development UI.
+ *
+ * Set the `adk.web.ui.enabled` system property to `false` to leave the Development UI unmounted, or
+ * set it in this application's Ktor config; only `true` and `false` count, and any other value is
+ * ignored with a warning so the next source decides.
+ */
 @OptIn(FrameworkInternalApi::class)
 fun Application.adkModule(
   sessionService: SessionService,
@@ -183,6 +191,8 @@ fun Application.adkModule(
     graphRoutes(agentLoader, sessionService)
     runRoutes(agentLoader, sessionService, artifactService, plugins)
     sessionRoutes(sessionService)
-    staticRoutes(this@adkModule)
+    if (this@adkModule.isWebUiEnabled(default = true)) {
+      staticRoutes(this@adkModule)
+    }
   }
 }

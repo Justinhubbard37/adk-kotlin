@@ -32,6 +32,39 @@ import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass())
 
+/** Property that decides whether the Development UI is served at all. */
+internal const val WEB_UI_ENABLED_PROPERTY = "adk.web.ui.enabled"
+
+/**
+ * Whether to mount the Development UI, from the `adk.web.ui.enabled` system property, else the
+ * application config, else [default]. A value that is not a boolean counts as unset, so a mistyped
+ * system property cannot mask a setting in the config. Only a host-supplied Ktor config is read;
+ * `embeddedServer` supplies none.
+ */
+internal fun Application.isWebUiEnabled(default: Boolean): Boolean =
+  webUiSettingOrNull(System.getProperty(WEB_UI_ENABLED_PROPERTY), "system property")
+    ?: webUiSettingOrNull(
+      environment.config.propertyOrNull(WEB_UI_ENABLED_PROPERTY)?.getString(),
+      "application config",
+    )
+    ?: default
+
+/** Parses one configured value; null when absent or not a boolean, warning in the latter case. */
+private fun webUiSettingOrNull(raw: String?, source: String): Boolean? {
+  if (raw == null) return null
+  val value = raw.trim()
+  return value.lowercase().toBooleanStrictOrNull().also {
+    if (it == null) {
+      logger.warn(
+        "Ignoring a non-boolean {} from the {}: \"{}\"",
+        WEB_UI_ENABLED_PROPERTY,
+        source,
+        value,
+      )
+    }
+  }
+}
+
 fun Route.staticRoutes(application: Application) {
   var webUiDir =
     System.getProperty("adk.web.ui.dir")
