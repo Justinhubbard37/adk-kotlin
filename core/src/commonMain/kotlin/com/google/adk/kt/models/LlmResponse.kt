@@ -167,7 +167,11 @@ data class LlmResponse(
         candidate?.finishReason ?: response.promptFeedback?.blockReason?.toFinishReason()
 
       return LlmResponse(
-        content = candidate?.content,
+        // Keep content only when it has parts or the turn finished normally, matching Python ADK.
+        content =
+          candidate?.content?.takeIf {
+            it.parts.isNotEmpty() || candidate.finishReason == FinishReason.STOP
+          },
         usageMetadata = response.usageMetadata,
         finishReason = finishReason,
         errorCode = finishReason?.takeIf { it != FinishReason.STOP }?.name,

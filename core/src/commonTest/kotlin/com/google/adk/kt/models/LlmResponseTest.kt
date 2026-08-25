@@ -25,6 +25,7 @@ import com.google.adk.kt.types.GenerateContentResponse
 import com.google.adk.kt.types.PromptFeedback
 import com.google.adk.kt.types.Role
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -87,6 +88,46 @@ class LlmResponseTest {
     assertEquals(FinishReason.SAFETY, llmResponse.finishReason)
     assertEquals("SAFETY", llmResponse.errorCode)
     assertEquals("Safety filter triggered", llmResponse.errorMessage)
+  }
+
+  @Test
+  fun testContentlessCandidateHasNoContent() {
+    // No parts and not STOP: null content, not an empty Content (they serialize differently).
+    val response =
+      GenerateContentResponse(
+        candidates =
+          listOf(
+            Candidate(
+              content = Content(role = Role.MODEL, parts = emptyList()),
+              finishReason = FinishReason.SAFETY,
+            )
+          )
+      )
+
+    val llmResponse = LlmResponse.from(response)
+
+    assertNull(llmResponse.content)
+  }
+
+  @Test
+  fun testCreateStopWithEmptyPartsKeepsContent() {
+    // A candidate that finished normally keeps its (empty) content rather than dropping it.
+    val response =
+      GenerateContentResponse(
+        candidates =
+          listOf(
+            Candidate(
+              content = Content(role = Role.MODEL, parts = emptyList()),
+              finishReason = FinishReason.STOP,
+            )
+          )
+      )
+
+    val llmResponse = LlmResponse.from(response)
+
+    val content = assertNotNull(llmResponse.content)
+    assertEquals(0, content.parts.size)
+    assertNull(llmResponse.errorCode)
   }
 
   @Test
