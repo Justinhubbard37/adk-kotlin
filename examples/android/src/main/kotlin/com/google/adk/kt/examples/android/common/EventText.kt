@@ -30,3 +30,13 @@ import com.google.adk.kt.events.Event
  */
 fun Event.foldTextParts(): String =
   content?.parts.orEmpty().filter { it.thought != true }.mapNotNull { it.text }.joinToString("")
+
+/**
+ * Concatenates this event's thought text: the text of every part marked as a thought, in order,
+ * joined directly (empty when the event carries none).
+ *
+ * The counterpart to [foldTextParts], and joined the same way and for the same reason: the parts
+ * are fragments of one continuous thought, so a separator injects breaks the model did not write.
+ */
+internal fun Event.foldThoughtParts(): String =
+  content?.parts.orEmpty().filter { it.thought == true }.mapNotNull { it.text }.joinToString("")
