@@ -16,43 +16,18 @@
 
 package com.google.adk.kt.webserver
 
-import com.google.adk.kt.annotations.FrameworkInternalApi
 import com.google.adk.kt.artifacts.ArtifactService
 import com.google.adk.kt.plugins.Plugin
-import com.google.adk.kt.serialization.adkJson
 import com.google.adk.kt.sessions.SessionService
-import com.google.adk.kt.telemetry.TelemetryConfig
-import com.google.adk.kt.webserver.AdkWebServer.StatusAwareLogger
-import com.google.adk.kt.webserver.dev.routes.debugRoutes
-import com.google.adk.kt.webserver.dev.routes.evalRoutes
-import com.google.adk.kt.webserver.dev.routes.graphRoutes
+import com.google.adk.kt.webserver.dev.adkDevModule
 import com.google.adk.kt.webserver.loaders.AgentLoader
-import com.google.adk.kt.webserver.models.VersionInfo
-import com.google.adk.kt.webserver.routes.appRoutes
-import com.google.adk.kt.webserver.routes.artifactRoutes
-import com.google.adk.kt.webserver.routes.isWebUiEnabled
-import com.google.adk.kt.webserver.routes.runRoutes
-import com.google.adk.kt.webserver.routes.sessionRoutes
-import com.google.adk.kt.webserver.routes.staticRoutes
 import com.google.adk.kt.webserver.telemetry.ApiServerSpanExporter
-import com.google.adk.kt.webserver.telemetry.OpenTelemetryConfig
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
-import io.ktor.server.application.call
-import io.ktor.server.application.install
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.ktor.server.plugins.callloging.CallLogging
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.request.httpMethod
-import io.ktor.server.request.uri
-import io.ktor.server.response.respond
-import io.ktor.server.routing.get
-import io.ktor.server.routing.routing
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.slf4j.event.Level
 
 /**
  * Embedded Ktor server exposing the ADK dev/web API.
@@ -124,14 +99,7 @@ class AdkWebServer(
   }
 }
 
-/**
- * Installs the ADK routes, including the Development UI.
- *
- * Set the `adk.web.ui.enabled` system property to `false` to leave the Development UI unmounted, or
- * set it in this application's Ktor config; only `true` and `false` count, and any other value is
- * ignored with a warning so the next source decides.
- */
-@OptIn(FrameworkInternalApi::class)
+/** Installs the full development surface. Equivalent to [adkDevModule]. */
 fun Application.adkModule(
   sessionService: SessionService,
   artifactService: ArtifactService,
@@ -140,59 +108,12 @@ fun Application.adkModule(
   captureMessageContent: Boolean = false,
   plugins: List<Plugin> = emptyList(),
 ) {
-  install(CallLogging) {
-    level = Level.INFO
-    logger = StatusAwareLogger(LoggerFactory.getLogger(CallLogging::class.java))
-    format { call ->
-      val status = call.response.status()
-      val httpMethod = call.request.httpMethod.value
-      val uri = call.request.uri
-      "Status: $status, HTTP method: $httpMethod, URI: $uri"
-    }
-  }
-  install(ContentNegotiation) { json(adkJson) }
-
-  val otelConfig = OpenTelemetryConfig(apiServerSpanExporter)
-  val sdkTracerProvider = otelConfig.sdkTracerProvider()
-  otelConfig.openTelemetrySdk(sdkTracerProvider)
-
-  // Message-content capture is controlled by the caller (AdkWebServer(captureMessageContent =
-  // ...)).
-  // The Dev UI trace view needs it to render prompt/response content, but it records potential PII
-  // into spans, so it stays OFF by default in the core library.
-  TelemetryConfig.captureMessageContent = captureMessageContent
-  if (captureMessageContent) {
-    LoggerFactory.getLogger("com.google.adk.kt.webserver.AdkWebServer")
-      .warn(
-        """
-        ADK web server enabled telemetry message-content capture: prompt/response content (which
-        may contain PII) will be recorded in trace spans. This is intended for local development
-        only.
-        """
-          .trimIndent()
-      )
-  }
-
-  routing {
-    get("/health") { call.respond(mapOf("status" to "ok")) }
-    get("/version") {
-      call.respond(
-        VersionInfo(
-          version = AdkWebServer.adkVersion(),
-          language = "kotlin",
-          languageVersion = System.getProperty("java.version", "unknown"),
-        )
-      )
-    }
-    appRoutes(agentLoader)
-    artifactRoutes(artifactService)
-    debugRoutes(apiServerSpanExporter)
-    evalRoutes()
-    graphRoutes(agentLoader, sessionService)
-    runRoutes(agentLoader, sessionService, artifactService, plugins)
-    sessionRoutes(sessionService)
-    if (this@adkModule.isWebUiEnabled(default = true)) {
-      staticRoutes(this@adkModule)
-    }
-  }
+  adkDevModule(
+    sessionService,
+    artifactService,
+    agentLoader,
+    apiServerSpanExporter,
+    captureMessageContent,
+    plugins,
+  )
 }
