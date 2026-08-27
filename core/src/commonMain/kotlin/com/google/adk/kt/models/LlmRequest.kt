@@ -16,6 +16,7 @@
 package com.google.adk.kt.models
 
 import com.google.adk.kt.agents.ContextCacheConfig
+import com.google.adk.kt.annotations.AdkJavaInteropApi
 import com.google.adk.kt.annotations.FrameworkInternalApi
 import com.google.adk.kt.serialization.adkJson
 import com.google.adk.kt.tools.BaseTool
@@ -27,6 +28,7 @@ import com.google.adk.kt.types.LlmConstants
 import com.google.adk.kt.types.Part
 import com.google.adk.kt.types.Role
 import com.google.adk.kt.types.Tool
+import kotlin.jvm.JvmStatic
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -197,6 +199,53 @@ data class LlmRequest(
         parts =
           listOf(Part(text = "Referenced $dataType: $referenceId"), Part(inlineData = inlineData)),
       )
+  }
+
+  /**
+   * Fluent builder for [LlmRequest], provided primarily for Java callers. Any property left unset
+   * falls back to the same default as the constructor. The internal `toolsDict` is
+   * request-processing state populated by [appendTools], not a caller input, so it is not exposed.
+   */
+  @Suppress("ScopeReceiverThis") // Java-style builder for Java interop.
+  class Builder {
+    private var model: Model? = null
+    private var contents: List<Content> = emptyList()
+    private var config: GenerateContentConfig = GenerateContentConfig()
+    private var cacheConfig: ContextCacheConfig? = null
+    private var cacheMetadata: CacheMetadata? = null
+    private var cacheableContentsTokenCount: Int? = null
+
+    fun model(model: Model?): Builder = apply { this.model = model }
+
+    fun contents(contents: List<Content>): Builder = apply { this.contents = contents }
+
+    fun config(config: GenerateContentConfig): Builder = apply { this.config = config }
+
+    fun cacheConfig(cacheConfig: ContextCacheConfig?): Builder = apply {
+      this.cacheConfig = cacheConfig
+    }
+
+    fun cacheMetadata(cacheMetadata: CacheMetadata?): Builder = apply {
+      this.cacheMetadata = cacheMetadata
+    }
+
+    fun cacheableContentsTokenCount(cacheableContentsTokenCount: Int?): Builder = apply {
+      this.cacheableContentsTokenCount = cacheableContentsTokenCount
+    }
+
+    fun build(): LlmRequest =
+      LlmRequest(
+        model = model,
+        contents = contents,
+        config = config,
+        cacheConfig = cacheConfig,
+        cacheMetadata = cacheMetadata,
+        cacheableContentsTokenCount = cacheableContentsTokenCount,
+      )
+  }
+
+  companion object {
+    @AdkJavaInteropApi @JvmStatic fun builder(): Builder = Builder()
   }
 }
 
