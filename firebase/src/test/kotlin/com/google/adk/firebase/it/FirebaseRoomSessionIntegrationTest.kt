@@ -26,6 +26,7 @@ import com.google.adk.kt.annotations.Param
 import com.google.adk.kt.annotations.Tool
 import com.google.adk.kt.events.Event
 import com.google.adk.kt.logging.LoggerFactory
+import com.google.adk.kt.models.Model
 import com.google.adk.kt.runners.InMemoryRunner
 import com.google.adk.kt.sessions.SessionKey
 import com.google.adk.kt.sessions.room.RoomSessionService
@@ -62,7 +63,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FirebaseRoomSessionIntegrationTest {
   private lateinit var firebaseApp: FirebaseApp
-  private lateinit var firebaseModel: Firebase
+  private lateinit var firebaseModel: Model
   private lateinit var context: Context
   private lateinit var sessionService: RoomSessionService
 
@@ -169,7 +170,8 @@ class FirebaseRoomSessionIntegrationTest {
     // constrained and answer 503 UNAVAILABLE for hours, which fails this test everywhere at once.
     val modelName =
       System.getenv(EnvVars.FIREBASE_MODEL_NAME)?.ifEmpty { null } ?: DEFAULT_MODEL_NAME
-    firebaseModel = Firebase.create(modelName, FirebaseAI.getInstance(firebaseApp))
+    // Retry transient endpoint errors (e.g. 503 from an overloaded model) with exponential backoff.
+    firebaseModel = Firebase.create(modelName, FirebaseAI.getInstance(firebaseApp)).withRetry()
 
     context = ApplicationProvider.getApplicationContext()
     context.deleteDatabase(TEST_DB_NAME)

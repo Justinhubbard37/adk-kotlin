@@ -56,8 +56,11 @@ android {
       isIncludeAndroidResources = true
       all {
         it.systemProperty("robolectric.logging", "stderr")
+        // The integration tests now retry transient endpoint errors in-process with exponential
+        // backoff (see RetryingModel), which this plugin cannot do. Keep one plain re-run as a
+        // backstop for non-endpoint flakiness (Robolectric/Firebase init).
         it.retry {
-          maxRetries = 2
+          maxRetries = 1
           filter { includeClasses.add("*IntegrationTest") }
         }
       }

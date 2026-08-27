@@ -27,6 +27,7 @@ import com.google.adk.kt.events.Event
 import com.google.adk.kt.logging.LoggerFactory
 import com.google.adk.kt.models.LlmRequest
 import com.google.adk.kt.models.LlmResponse
+import com.google.adk.kt.models.Model
 import com.google.adk.kt.runners.InMemoryRunner
 import com.google.adk.kt.tools.FunctionTool
 import com.google.adk.kt.tools.ToolContext
@@ -52,7 +53,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FirebaseIntegrationTest {
   private lateinit var firebaseApp: FirebaseApp
-  private lateinit var firebaseModel: Firebase
+  private lateinit var firebaseModel: Model
 
   companion object {
     private val log = LoggerFactory.getLogger(FirebaseIntegrationTest::class)
@@ -180,7 +181,8 @@ class FirebaseIntegrationTest {
     // constrained and answer 503 UNAVAILABLE for hours, which fails this test everywhere at once.
     val modelName =
       System.getenv(EnvVars.FIREBASE_MODEL_NAME)?.ifEmpty { null } ?: DEFAULT_MODEL_NAME
-    firebaseModel = Firebase.create(modelName, FirebaseAI.getInstance(firebaseApp))
+    // Retry transient endpoint errors (e.g. 503 from an overloaded model) with exponential backoff.
+    firebaseModel = Firebase.create(modelName, FirebaseAI.getInstance(firebaseApp)).withRetry()
   }
 
   @Test
